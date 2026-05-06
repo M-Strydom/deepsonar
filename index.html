@@ -319,22 +319,25 @@ function pushState() {
   send({ type: 'state_update', room: roomCode, state: G });
 }
 
+let rowCounter = 0;
+function newId() { return 'r' + (++rowCounter); }
+
 function addPlayerRow(crew) {
-  const id = Date.now();
-  hostPlayerRows[crew].push(id);
+  hostPlayerRows[crew].push(newId());
   renderPlayerRows();
 }
 
 function renderPlayerRows() {
   ['A','B'].forEach(crew => {
     const el = document.getElementById('host-players-' + crew);
-    el.innerHTML = hostPlayerRows[crew].map((id,i) => `
+    if (!el) return;
+    el.innerHTML = hostPlayerRows[crew].map(id => `
       <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
         <input type="text" placeholder="Player name" id="pname-${crew}-${id}" style="flex:1;font-size:12px;padding:6px 10px">
         <select id="prole-${crew}-${id}" style="flex:1;font-size:12px;padding:6px 8px">
           ${ROLES_DEF.map(r => `<option value="${r.id}">${r.name}</option>`).join('')}
         </select>
-        <button onclick="removePlayerRow('${crew}',${id})" style="padding:4px 8px;font-size:11px;color:#a32d2d;border-color:#f09595">&#10005;</button>
+        <button onclick="removePlayerRow('${crew}','${id}')" style="padding:4px 8px;font-size:11px;color:#a32d2d;border-color:#f09595">&#10005;</button>
       </div>
     `).join('');
   });
@@ -345,9 +348,11 @@ function removePlayerRow(crew, id) {
   renderPlayerRows();
 }
 
-// Init with 4 rows each
-['A','B'].forEach(crew => { for(let i=0;i<4;i++) hostPlayerRows[crew].push(Date.now()+Math.random()); });
-renderPlayerRows();
+// Init with 4 rows each — deferred so DOM is ready
+setTimeout(() => {
+  ['A','B'].forEach(crew => { for(let i=0;i<4;i++) hostPlayerRows[crew].push(newId()); });
+  renderPlayerRows();
+}, 0);
 
 document.getElementById('h-nameA').addEventListener('input', e => {
   document.getElementById('lbl-crew-a').textContent = (e.target.value||'Alpha') + ' crew';
