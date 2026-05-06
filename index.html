@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deep Sonar</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f3;color:#1a1a1a;min-height:100vh;font-size:15px}
+.wrap{max-width:680px;margin:0 auto;padding:1.5rem 1rem}
+.card{background:#fff;border:1px solid #e0e0dc;border-radius:12px;padding:1.25rem;margin-bottom:12px}
+.card-title{font-size:14px;font-weight:600;margin-bottom:12px;color:#444}
+h1{font-size:24px;font-weight:600;margin-bottom:4px}
+h2{font-size:18px;font-weight:600;margin-bottom:1rem}
+p{line-height:1.6}
+button{cursor:pointer;font-family:inherit;font-size:13px;padding:8px 16px;border-radius:8px;border:1px solid #ccc;background:#fff;color:#1a1a1a;transition:all 0.15s}
+button:hover{background:#f0f0ee}
+button:active{transform:scale(0.98)}
+button.pri{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+button.pri:hover{background:#333}
+button.danger{background:#fff0f0;color:#a32d2d;border-color:#f09595}
+button.danger:hover{background:#fce8e8}
+button.success{background:#f0faf5;color:#0f6e56;border-color:#5dcaa5}
+button:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+input[type=text],input[type=number],select,textarea{width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:8px;font-size:13px;font-family:inherit;background:#fff;color:#1a1a1a}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#378add}
+label{display:block;font-size:12px;font-weight:600;color:#888;margin-bottom:4px;letter-spacing:0.03em;text-transform:uppercase}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.badge{display:inline-block;font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px}
+.badge-blue{background:#e6f1fb;color:#0c447c}
+.badge-teal{background:#e1f5ee;color:#085041}
+.badge-red{background:#fcebeb;color:#791f1f}
+.badge-amber{background:#faeeda;color:#633806}
+.badge-gray{background:#f1efe8;color:#444}
+.scr{display:none}
+.scr.on{display:block}
+.role-card{border:1px solid #e0e0dc;border-radius:10px;padding:12px;cursor:pointer;transition:all 0.15s;background:#fff}
+.role-card:hover{border-color:#378add;background:#f5f9ff}
+.role-card.sel{border:2px solid #185fa5;background:#e6f1fb}
+.role-card.taken{opacity:0.5;cursor:default;background:#f8f8f6}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+.dot-green{background:#1d9e75}
+.dot-amber{background:#ef9f27}
+.dot-red{background:#e24b4a}
+.cell{width:30px;height:30px;border:1px solid #e0e0dc;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;transition:background 0.1s;vertical-align:top;user-select:none}
+.cell:hover{background:#f0f0ee}
+.cell.mark{background:#e1f5ee;color:#085041}
+.cell.hit{background:#fcebeb;color:#a32d2d}
+.cell.miss{background:#e6f1fb;color:#185fa5}
+.cell.sub{background:#e1f5ee;color:#085041}
+.cell.trail{background:#faeeda}
+.cell.fire-target:hover{background:#fff0f0;cursor:crosshair}
+.hp-dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:3px}
+.progress-wrap{height:10px;background:#f0f0ee;border-radius:5px;overflow:hidden;margin:6px 0}
+.progress-fill{height:100%;border-radius:5px;background:#185fa5;transition:width 0.4s}
+.ping-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(24,95,165,0.12);z-index:100;align-items:center;justify-content:center;flex-direction:column}
+.ping-overlay.show{display:flex}
+.ping-dir{font-size:120px;font-weight:700;color:#185fa5;animation:pingfade 2.5s forwards}
+.ping-label{font-size:18px;font-weight:600;color:#185fa5;margin-top:8px;animation:pingfade 2.5s forwards}
+@keyframes pingfade{0%{opacity:1;transform:scale(1.15)}70%{opacity:1}100%{opacity:0;transform:scale(0.85)}}
+.log-entry{font-size:12px;padding:4px 0;border-bottom:1px solid #f0f0ee;color:#888;line-height:1.5}
+.log-entry:last-child{border:none}
+.log-entry.important{color:#1a1a1a;font-weight:600}
+.status-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#fff;border:1px solid #e0e0dc;border-radius:10px;margin-bottom:12px}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:#ccc;display:inline-block;margin-right:6px}
+.conn-dot.ok{background:#1d9e75}
+.conn-dot.bad{background:#e24b4a}
+.eng-opt{padding:12px;border:1px solid #e0e0dc;border-radius:8px;cursor:pointer;text-align:center;font-size:14px;font-weight:600;transition:all 0.15s;background:#fff}
+.eng-opt:hover{background:#f5f5f3;border-color:#888}
+.eng-opt.correct{background:#e1f5ee;border-color:#1d9e75;color:#085041}
+.eng-opt.wrong{background:#fcebeb;border-color:#e24b4a;color:#791f1f}
+.notify{position:fixed;bottom:20px;right:20px;background:#1a1a1a;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:200;opacity:0;transition:opacity 0.3s;pointer-events:none}
+.notify.show{opacity:1}
+.player-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0ee;font-size:13px}
+.player-row:last-child{border:none}
+.avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+</style>
+</head>
+<body>
+
+<div id="ping-overlay" class="ping-overlay">
+  <div id="ping-arrow" class="ping-dir"></div>
+  <div id="ping-label" class="ping-label">Enemy heading detected</div>
+</div>
+<div id="notify" class="notify"></div>
+
+<div class="wrap">
+
+<!-- HOME -->
+<div id="s-home" class="scr on">
+  <div style="padding:1rem 0 1.5rem">
+    <h1>Deep Sonar</h1>
+    <p style="color:#888;font-size:14px">Two submarines. One ocean. Sink them first.</p>
+  </div>
+  <div class="card">
+    <div class="grid-2" style="gap:10px">
+      <button class="pri" onclick="show('s-host')" style="padding:14px;font-size:14px">Host a game</button>
+      <button onclick="show('s-join')" style="padding:14px;font-size:14px">Join a game</button>
+    </div>
+  </div>
+  <div class="card" style="background:#f8f8f6">
+    <p class="card-title">How it works</p>
+    <p style="font-size:13px;color:#666;line-height:1.8">
+      The host creates a game and gets a 5-letter room code.<br>
+      Each player opens this page, joins the room, and picks their role.<br>
+      Your screen updates in real time — no copy-pasting codes.<br>
+      Play over Zoom: each crew in their own breakout room.
+    </p>
+  </div>
+</div>
+
+<!-- HOST SETUP -->
+<div id="s-host" class="scr">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.5rem">
+    <button onclick="show('s-home')">&#8592; Back</button>
+    <h2 style="margin:0">Host setup</h2>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Crews</p>
+    <div class="grid-2">
+      <div><label>Crew Alpha name</label><input type="text" id="h-nameA" value="Red Tide"></div>
+      <div><label>Crew Bravo name</label><input type="text" id="h-nameB" value="Deep Six"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Game settings</p>
+    <div class="grid-2">
+      <div><label>Grid size</label>
+        <select id="h-grid">
+          <option value="10">10 × 10 (standard)</option>
+          <option value="12">12 × 12 (large)</option>
+          <option value="8">8 × 8 (quick)</option>
+        </select>
+      </div>
+      <div><label>Hits to sink</label>
+        <select id="h-hp">
+          <option value="3" selected>3 hits</option>
+          <option value="5">5 hits</option>
+          <option value="2">2 hits (fast)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Assign roles to crew slots</p>
+    <p style="font-size:12px;color:#888;margin-bottom:12px">Add player names and assign their role. You can add 4–8 players per crew.</p>
+
+    <div class="grid-2" style="margin-bottom:16px">
+      <div>
+        <p style="font-size:13px;font-weight:600;margin-bottom:8px" id="lbl-crew-a">Red Tide crew</p>
+        <div id="host-players-a"></div>
+        <button onclick="addPlayerRow('A')" style="width:100%;margin-top:6px;font-size:12px">+ Add player</button>
+      </div>
+      <div>
+        <p style="font-size:13px;font-weight:600;margin-bottom:8px" id="lbl-crew-b">Deep Six crew</p>
+        <div id="host-players-b"></div>
+        <button onclick="addPlayerRow('B')" style="width:100%;margin-top:6px;font-size:12px">+ Add player</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="pri" onclick="hostCreate()" style="width:100%;padding:12px">Create game &amp; get room code</button>
+  <div id="host-code-area" style="margin-top:12px"></div>
+</div>
+
+<!-- JOIN -->
+<div id="s-join" class="scr">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.5rem">
+    <button onclick="show('s-home')">&#8592; Back</button>
+    <h2 style="margin:0">Join game</h2>
+  </div>
+  <div class="card">
+    <label>Room code (5 letters, from your host)</label>
+    <input type="text" id="join-code" placeholder="e.g. XKQT2" style="text-transform:uppercase;letter-spacing:0.1em;font-size:18px;text-align:center;margin-bottom:10px" maxlength="5">
+    <input type="text" id="join-name" placeholder="Your name" style="margin-bottom:10px">
+    <button class="pri" onclick="joinGame()" style="width:100%;padding:11px">Join</button>
+    <p id="join-err" style="color:#a32d2d;font-size:12px;margin-top:8px;display:none"></p>
+  </div>
+</div>
+
+<!-- PICK ROLE -->
+<div id="s-pick-role" class="scr">
+  <div class="status-bar">
+    <div><span id="pr-conn-dot" class="conn-dot"></span><span id="pr-conn-label" style="font-size:12px;color:#888">Connecting...</span></div>
+    <span id="pr-room-code" class="badge badge-gray"></span>
+  </div>
+  <h2 id="pr-title">Pick your station</h2>
+  <p style="font-size:13px;color:#888;margin-bottom:1rem" id="pr-sub"></p>
+  <div id="role-list-wrap"></div>
+</div>
+
+<!-- STATION -->
+<div id="s-station" class="scr">
+  <div class="status-bar">
+    <div>
+      <span id="st-conn-dot" class="conn-dot"></span>
+      <span id="st-role-badge" class="badge badge-blue" style="margin-right:6px"></span>
+      <span id="st-crew-badge" class="badge badge-teal"></span>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <span style="font-size:12px;color:#888">Turn <span id="st-turn">1</span></span>
+      <button onclick="show('s-pick-role')" style="font-size:11px;padding:4px 8px">Switch role</button>
+    </div>
+  </div>
+  <div id="station-body"></div>
+</div>
+
+<!-- WIN -->
+<div id="s-win" class="scr" style="text-align:center;padding:3rem 0">
+  <div style="font-size:64px;margin-bottom:1rem">&#127881;</div>
+  <h1 id="win-title" style="margin-bottom:8px">Victory!</h1>
+  <p style="color:#888;margin-bottom:2rem" id="win-sub"></p>
+  <button class="pri" onclick="location.reload()" style="padding:12px 32px">Play again</button>
+</div>
+
+</div><!-- end .wrap -->
+
+<script>
+const ROLES_DEF = [
+  {id:'captain',    name:'Captain',         icon:'&#9875;', color:'#e6f1fb', tc:'#0c447c', desc:'Calls headings each turn. Approves torpedo fire.'},
+  {id:'navigator',  name:'Navigator',       icon:'&#128506;',color:'#e1f5ee', tc:'#085041', desc:'Draws your path on a private grid. Confirms every move is legal.'},
+  {id:'engineer',   name:'Engineer',        icon:'&#9881;',  color:'#faeeda', tc:'#633806', desc:'Solves a system puzzle each turn. Fail and torpedo charge stalls.'},
+  {id:'weapons',    name:'Weapons officer', icon:'&#127919;',color:'#fcebeb', tc:'#791f1f', desc:'Charges and fires the torpedo — with captain\'s approval.'},
+  {id:'sonar',      name:'Sonar operator',  icon:'&#128268;',color:'#eeedfe', tc:'#3c3489', desc:'Receives heading pings when enemy moves. Tracks their position.'},
+  {id:'comms',      name:'Comms officer',   icon:'&#128225;',color:'#f1efe8', tc:'#2c2c2a', desc:'Relays all intel between stations each turn.'},
+  {id:'damage',     name:'Damage control',  icon:'&#128736;',color:'#fbeaf0', tc:'#72243e', desc:'Manages hull integrity. Critical after taking a hit.'},
+  {id:'decoy',      name:'Decoy operator',  icon:'&#128123;',color:'#e1f5ee', tc:'#085041', desc:'Deploys one false heading ping to mislead enemy sonar.'}
+];
+
+let WS = null;
+let G = null;
+let myRole = null;
+let myCrew = null;
+let myName = null;
+let roomCode = null;
+let navMarks = {};
+let sonarMarks = {};
+let hostPlayerRows = {A:[], B:[]};
+
+function show(id) {
+  document.querySelectorAll('.scr').forEach(s => s.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+}
+
+function notify(msg, dur=2500) {
+  const el = document.getElementById('notify');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), dur);
+}
+
+function wsUrl() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  return proto + '://' + location.host;
+}
+
+function connectWS(onOpen) {
+  WS = new WebSocket(wsUrl());
+  WS.onopen = () => {
+    setConnected(true);
+    if (onOpen) onOpen();
+  };
+  WS.onclose = () => {
+    setConnected(false);
+    setTimeout(() => connectWS(), 3000);
+  };
+  WS.onerror = () => setConnected(false);
+  WS.onmessage = (e) => handleMsg(JSON.parse(e.data));
+}
+
+function setConnected(ok) {
+  document.querySelectorAll('.conn-dot').forEach(d => {
+    d.classList.toggle('ok', ok);
+    d.classList.toggle('bad', !ok);
+  });
+  document.querySelectorAll('#pr-conn-label,#st-conn-label').forEach(l => {
+    if(l) l.textContent = ok ? 'Connected' : 'Reconnecting...';
+  });
+}
+
+function send(obj) {
+  if (WS && WS.readyState === 1) WS.send(JSON.stringify(obj));
+}
+
+function handleMsg(msg) {
+  if (msg.type === 'hosted') {
+    roomCode = msg.code;
+    G = msg.state;
+    showHostCode(msg.code);
+  }
+  if (msg.type === 'joined') {
+    G = msg.state;
+    buildRoleList();
+    show('s-pick-role');
+    document.getElementById('pr-room-code').textContent = 'Room: ' + roomCode;
+    document.getElementById('pr-conn-dot').classList.add('ok');
+    document.getElementById('pr-conn-label').textContent = 'Connected';
+  }
+  if (msg.type === 'state_update') {
+    G = msg.state;
+    if (document.getElementById('s-station').classList.contains('on')) renderStation();
+    if (document.getElementById('s-pick-role').classList.contains('on')) buildRoleList();
+  }
+  if (msg.type === 'sonar_ping') {
+    if (myRole === 'sonar' && msg.crew !== myCrew) triggerPing(msg.heading);
+  }
+  if (msg.type === 'error') {
+    const e = document.getElementById('join-err');
+    e.textContent = msg.msg; e.style.display = 'block';
+  }
+  if (msg.type === 'pong') {}
+}
+
+function pushState() {
+  send({ type: 'state_update', room: roomCode, state: G });
+}
+
+function addPlayerRow(crew) {
+  const id = Date.now();
+  hostPlayerRows[crew].push(id);
+  renderPlayerRows();
+}
+
+function renderPlayerRows() {
+  ['A','B'].forEach(crew => {
+    const el = document.getElementById('host-players-' + crew);
+    el.innerHTML = hostPlayerRows[crew].map((id,i) => `
+      <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+        <input type="text" placeholder="Player name" id="pname-${crew}-${id}" style="flex:1;font-size:12px;padding:6px 10px">
+        <select id="prole-${crew}-${id}" style="flex:1;font-size:12px;padding:6px 8px">
+          ${ROLES_DEF.map(r => `<option value="${r.id}">${r.name}</option>`).join('')}
+        </select>
+        <button onclick="removePlayerRow('${crew}',${id})" style="padding:4px 8px;font-size:11px;color:#a32d2d;border-color:#f09595">&#10005;</button>
+      </div>
+    `).join('');
+  });
+}
+
+function removePlayerRow(crew, id) {
+  hostPlayerRows[crew] = hostPlayerRows[crew].filter(x => x !== id);
+  renderPlayerRows();
+}
+
+// Init with 4 rows each
+['A','B'].forEach(crew => { for(let i=0;i<4;i++) hostPlayerRows[crew].push(Date.now()+Math.random()); });
+renderPlayerRows();
+
+document.getElementById('h-nameA').addEventListener('input', e => {
+  document.getElementById('lbl-crew-a').textContent = (e.target.value||'Alpha') + ' crew';
+});
+document.getElementById('h-nameB').addEventListener('input', e => {
+  document.getElementById('lbl-crew-b').textContent = (e.target.value||'Bravo') + ' crew';
+});
+
+function placeRandom(size) { return {r: Math.floor(Math.random()*size), c: Math.floor(Math.random()*size)}; }
+function makeGrid(size) { return Array(size).fill(null).map(() => Array(size).fill(0)); }
+
+function hostCreate() {
+  const size = parseInt(document.getElementById('h-grid').value);
+  const hp = parseInt(document.getElementById('h-hp').value);
+  const nameA = document.getElementById('h-nameA').value || 'Red Tide';
+  const nameB = document.getElementById('h-nameB').value || 'Deep Six';
+
+  const players = {A:[], B:[]};
+  ['A','B'].forEach(crew => {
+    hostPlayerRows[crew].forEach(id => {
+      const name = document.getElementById('pname-'+crew+'-'+id)?.value?.trim();
+      const role = document.getElementById('prole-'+crew+'-'+id)?.value;
+      if (name && role) players[crew].push({name, role});
+    });
+  });
+
+  if (players.A.length === 0 || players.B.length === 0) { alert('Add at least one player per crew.'); return; }
+
+  const hasRole = (crew, rid) => players[crew].some(p => p.role === rid);
+  if (!hasRole('A','captain') || !hasRole('B','captain')) { alert('Each crew needs a Captain.'); return; }
+
+  const posA = placeRandom(size), posB = placeRandom(size);
+  const state = {
+    size, nameA, nameB, maxHp: hp, turn: 1, phase: 'move', activeCrew: 'A',
+    A: {hp, pos:{...posA}, trail:[{...posA}], charge:0, sonarFix:false, decoyUsed:false, targetHits:makeGrid(size), hits:0, fireApproved:false},
+    B: {hp, pos:{...posB}, trail:[{...posB}], charge:0, sonarFix:false, decoyUsed:false, targetHits:makeGrid(size), hits:0, fireApproved:false},
+    players,
+    rolesReady: {A:{}, B:{}},
+    log: ['Game started. ' + nameA + ' vs ' + nameB + '. Grid ' + size + 'x' + size + '.'],
+    lastHeading: null, lastHeadingCrew: null,
+    engineQ: null, pendingDir: null
+  };
+
+  connectWS(() => send({ type: 'host_create', state }));
+}
+
+function showHostCode(code) {
+  document.getElementById('host-code-area').innerHTML = `
+    <div class="card" style="background:#f0faf5;border-color:#5dcaa5">
+      <p class="card-title" style="color:#085041">Game created!</p>
+      <p style="font-size:36px;font-weight:700;letter-spacing:0.15em;text-align:center;margin:12px 0;color:#1a1a1a">${code}</p>
+      <p style="font-size:12px;color:#888;text-align:center;margin-bottom:12px">Share this code in Zoom. Everyone opens this page and clicks "Join a game".</p>
+      <button class="pri" onclick="copyRoomCode('${code}')" style="width:100%">Copy room code</button>
+    </div>
+  `;
+}
+
+function copyRoomCode(code) {
+  navigator.clipboard.writeText(code).then(() => notify('Room code copied!'));
+}
+
+function joinGame() {
+  const code = document.getElementById('join-code').value.trim().toUpperCase();
+  const name = document.getElementById('join-name').value.trim();
+  if (!code || code.length < 3) { showJoinErr('Enter the room code from your host.'); return; }
+  if (!name) { showJoinErr('Enter your name.'); return; }
+  myName = name;
+  roomCode = code;
+  connectWS(() => send({ type: 'join', room: code, name }));
+}
+
+function showJoinErr(msg) {
+  const e = document.getElementById('join-err');
+  e.textContent = msg; e.style.display = 'block';
+}
+
+function buildRoleList() {
+  document.getElementById('pr-title').textContent = 'Pick your station';
+  document.getElementById('pr-sub').textContent = G.nameA + ' vs ' + G.nameB + ' — turn ' + G.turn;
+
+  const wrap = document.getElementById('role-list-wrap');
+  wrap.innerHTML = '<div class="grid-2">' + ['A','B'].map(crew => `
+    <div>
+      <p style="font-size:13px;font-weight:600;margin-bottom:8px">${crew==='A'?G.nameA:G.nameB}</p>
+      ${G.players[crew].map(p => {
+        const r = ROLES_DEF.find(x => x.id === p.role);
+        const ready = G.rolesReady[crew][p.role];
+        const isMine = myRole === p.role && myCrew === crew;
+        return `<div class="role-card ${isMine?'sel':''}" onclick="pickRole('${crew}','${p.role}','${p.name}')" style="margin-bottom:6px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-size:18px">${r.icon}</span>
+            <span style="font-size:13px;font-weight:600">${p.name}</span>
+            <span class="dot ${ready?'dot-green':'dot-amber'}" style="margin-left:auto"></span>
+          </div>
+          <span style="font-size:11px;color:#888">${r.name}</span>
+        </div>`;
+      }).join('')}
+    </div>
+  `).join('') + '</div>';
+}
+
+function pickRole(crew, roleId, playerName) {
+  myCrew = crew;
+  myRole = roleId;
+  myName = playerName;
+  document.getElementById('st-role-badge').textContent = ROLES_DEF.find(r=>r.id===roleId).name;
+  document.getElementById('st-crew-badge').textContent = crew==='A' ? G.nameA : G.nameB;
+  renderStation();
+  show('s-station');
+}
+
+function crewName(cr) { return cr==='A' ? G.nameA : G.nameB; }
+
+function addLog(msg, important=false) {
+  if (!G) return;
+  G.log.unshift((important?'*** ':'')+msg+(important?' ***':''));
+  if (G.log.length > 60) G.log.pop();
+}
+
+function hpDots(n, max) {
+  let s = '';
+  for (let i=0;i<max;i++) {
+    s += `<span class="hp-dot" style="background:${i<n?'#1d9e75':'#e0e0dc'}"></span>`;
+  }
+  return s;
+}
+
+function statusCard() {
+  const isMyTurn = myCrew === G.activeCrew;
+  const phases = {move:'Movement phase', fire:'Fire decision'};
+  return `<div class="status-bar" style="margin-bottom:12px">
+    <div>
+      <span class="badge ${isMyTurn?'badge-teal':'badge-amber'}" style="margin-right:6px">${isMyTurn?'Your turn':'Waiting...'}</span>
+      <span class="badge badge-blue">${phases[G.phase]||G.phase}</span>
+    </div>
+    <span style="font-size:12px;color:#888">Turn ${G.turn}</span>
+  </div>`;
+}
+
+function renderStation() {
+  document.getElementById('st-turn').textContent = G.turn;
+  const body = document.getElementById('station-body');
+  const fns = {captain:renderCaptain, navigator:renderNavigator, engineer:renderEngineer,
+    weapons:renderWeapons, sonar:renderSonar, comms:renderComms, damage:renderDamage, decoy:renderDecoy};
+  body.innerHTML = (fns[myRole] || (() => '<p>Unknown role</p>'))();
+  bindPostRender();
+}
+
+function renderCaptain() {
+  const cr = G[myCrew], opp = G[myCrew==='A'?'B':'A'];
+  const isMyTurn = myCrew === G.activeCrew;
+  const ready = G.rolesReady[myCrew]['captain'];
+  return statusCard() + `
+  <div class="card">
+    <p class="card-title">Your submarine</p>
+    <div style="display:flex;gap:16px;font-size:13px">
+      <div>Hull: ${hpDots(cr.hp, G.maxHp)}</div>
+      <div>Torpedo: <strong>${Math.round(cr.charge)}%</strong></div>
+      <div>Sonar fix: ${cr.sonarFix?'<span class="badge badge-teal">Yes</span>':'<span class="badge badge-red">No</span>'}</div>
+    </div>
+    ${cr.fireApproved?'<p style="margin-top:8px;font-size:13px;color:#a32d2d;font-weight:600">&#128680; Fire approved — Weapons officer will shoot</p>':''}
+  </div>
+  <div class="card">
+    <p class="card-title">Call heading</p>
+    ${isMyTurn && G.phase==='move' && !ready ? `
+      <p style="font-size:12px;color:#888;margin-bottom:12px">Announce your heading out loud to your crew first — enemy sonar is listening.</p>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        <button onclick="captainMove('N')" style="padding:14px;font-size:18px">&#8593; N</button>
+        <button onclick="captainMove('S')" style="padding:14px;font-size:18px">&#8595; S</button>
+        <button onclick="captainMove('W')" style="padding:14px;font-size:18px">&#8592; W</button>
+        <button onclick="captainMove('E')" style="padding:14px;font-size:18px">&#8594; E</button>
+      </div>` :
+    ready ? `<p style="color:#1d9e75;font-weight:600">&#10003; Heading called. Waiting for all stations.</p>` :
+    `<p style="color:#888">Waiting for your turn...</p>`}
+  </div>
+  ${G.phase==='fire' && isMyTurn ? renderCaptainFireApproval() : ''}
+  ${renderMiniLog()}`;
+}
+
+function renderCaptainFireApproval() {
+  const cr = G[myCrew];
+  const canApprove = cr.charge >= 100 && cr.sonarFix;
+  return `<div class="card" style="border-color:${canApprove?'#5dcaa5':'#e0e0dc'}">
+    <p class="card-title">Fire control</p>
+    ${canApprove && !cr.fireApproved ? `
+      <p style="font-size:13px;margin-bottom:12px">Torpedo ready. Sonar fix confirmed. Approve the shot?</p>
+      <div style="display:flex;gap:8px">
+        <button class="success" onclick="captainApprove()">Approve fire</button>
+        <button class="pri" onclick="endTurn()">End turn — don't fire</button>
+      </div>` :
+    cr.fireApproved ? `<p style="color:#1d9e75;font-weight:600">&#10003; Fire approved. Weapons officer is targeting.</p>
+      <button onclick="endTurn()" style="margin-top:8px">End turn without firing</button>` :
+    `<p style="font-size:13px;color:#888">Need 100% charge + sonar fix to fire.<br>Charge: ${Math.round(cr.charge)}% — Sonar: ${cr.sonarFix?'confirmed':'not confirmed'}</p>
+      <button class="pri" onclick="endTurn()" style="margin-top:10px">End turn</button>`}
+  </div>`;
+}
+
+function renderNavigator() {
+  const isMyTurn = myCrew === G.activeCrew;
+  const ready = G.rolesReady[myCrew]['navigator'];
+  return statusCard() + `
+  <div class="card">
+    <p class="card-title">Navigation chart</p>
+    <p style="font-size:12px;color:#888;margin-bottom:10px">Click cells to mark your sub's path. Click again to clear. Your job: confirm every heading is legal — no revisiting marked squares.</p>
+    <div id="nav-grid-wrap" style="overflow-x:auto;margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button onclick="navClear()">Clear chart</button>
+      ${isMyTurn && G.phase==='move' && !ready ?
+        `<button class="pri" onclick="navConfirm()">Confirm — move is legal</button>` : ''}
+      ${ready ? `<span style="color:#1d9e75;font-weight:600;padding:8px 0">&#10003; Move confirmed</span>` : ''}
+    </div>
+  </div>
+  ${renderMiniLog()}`;
+}
+
+function renderEngineer() {
+  const isMyTurn = myCrew === G.activeCrew;
+  const ready = G.rolesReady[myCrew]['engineer'];
+  if (isMyTurn && G.phase==='move' && !ready && !G.engineQ) genEngineQ();
+  const q = G.engineQ;
+  return statusCard() + `
+  <div class="card">
+    <p class="card-title">System check</p>
+    ${isMyTurn && G.phase==='move' && !ready && q ? `
+      <p style="font-size:13px;margin-bottom:8px">Which two numbers add up to <strong style="font-size:18px">${q.target}</strong>?</p>
+      <p style="font-size:12px;color:#888;margin-bottom:12px">Pick the correct pair — fail and torpedo charge stalls this turn.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="eng-opts">
+        ${q.opts.map((pair,i) => `<div class="eng-opt" id="eopt-${i}" onclick="checkEng(${i})">${pair[0]} + ${pair[1]}</div>`).join('')}
+      </div>` :
+    ready ? `<p style="color:#1d9e75;font-weight:600">&#10003; Systems nominal. Torpedo charging.</p>` :
+    `<p style="color:#888">Standby — system check runs on your turn.</p>`}
+  </div>
+  ${renderMiniLog()}`;
+}
+
+function renderWeapons() {
+  const cr = G[myCrew];
+  const isMyTurn = myCrew === G.activeCrew;
+  const wReady = G.rolesReady[myCrew]['weapons'];
+  const canFire = cr.charge >= 100 && cr.sonarFix && cr.fireApproved;
+  return statusCard() + `
+  <div class="card">
+    <p class="card-title">Torpedo tube</p>
+    <div class="progress-wrap"><div class="progress-fill" style="width:${Math.round(cr.charge)}%"></div></div>
+    <p style="font-size:12px;color:#888;margin-bottom:12px">Charge: <strong>${Math.round(cr.charge)}%</strong>
+      ${cr.charge>=100?'<span class="badge badge-teal" style="margin-left:6px">Ready</span>':''}</p>
+    ${isMyTurn && G.phase==='move' && !wReady ?
+      `<button class="pri" onclick="chargeWeapons()">Add charge (+25%)</button>` :
+    wReady ? `<p style="color:#1d9e75;font-weight:600">&#10003; Charged this turn.</p>` :
+    `<p style="color:#888">Standby...</p>`}
+  </div>
+  <div class="card" style="${canFire?'border-color:#5dcaa5':''}">
+    <p class="card-title">Fire control</p>
+    <p style="font-size:13px;margin-bottom:4px">Captain approval: ${cr.fireApproved?'<span class="badge badge-teal">Approved</span>':'<span class="badge badge-red">Not approved</span>'}</p>
+    <p style="font-size:13px;margin-bottom:12px">Sonar fix: ${cr.sonarFix?'<span class="badge badge-teal">Confirmed</span>':'<span class="badge badge-red">No fix</span>'}</p>
+    ${canFire ? `
+      <p style="font-size:13px;font-weight:600;margin-bottom:10px">Select target on grid:</p>
+      <div id="fire-grid-wrap" style="overflow-x:auto;margin-bottom:10px"></div>` :
+    `<p style="font-size:12px;color:#888">Waiting for 100% charge, sonar fix, and captain's approval.</p>`}
+  </div>
+  ${renderMiniLog()}`;
+}
+
+function renderSonar() {
+  const cr = G[myCrew];
+  const isMyTurn = myCrew === G.activeCrew;
+  const ready = G.rolesReady[myCrew]['sonar'];
+  return statusCard() + `
+  <div class="card">
+    <p class="card-title">Sonar station</p>
+    <p style="font-size:12px;color:#888;margin-bottom:10px">When the enemy captain calls a heading, a ping flashes on your screen. Use the grid below to track their position.</p>
+    <p style="font-size:13px;margin-bottom:12px">Current fix: ${cr.sonarFix?'<span class="badge badge-teal">Confirmed</span>':'<span class="badge badge-red">Not confirmed</span>'}</p>
+    ${!ready ? `<button class="pri" onclick="confirmSonar()">Confirm sonar fix — I have their location</button>` :
+    `<p style="color:#1d9e75;font-weight:600">&#10003; Sonar fix confirmed.</p>`}
+  </div>
+  <div class="card">
+    <p class="card-title">Tracking grid</p>
+    <p style="font-size:12px;color:#888;margin-bottom:8px">Your personal notepad — not shared with anyone. Mark suspected positions.</p>
+    <div id="sonar-grid-wrap" style="overflow-x:auto;margin-bottom:8px"></div>
+    <button onclick="sonarClear()" style="font-size:12px">Clear grid</button>
+  </div>
+  ${renderMiniLog()}`;
+}
+
+function renderComms() {
+  const cr = G[myCrew];
+  const ready = G.rolesReady[myCrew]['comms'];
+  return statusCard() + `
+  <div class="card">
+    <p class="card-title">Comms station</p>
+    <p style="font-size:12px;color:#888;margin-bottom:12px">You relay all information between stations. No one speaks directly — everything goes through you.</p>
+    <div style="background:#f8f8f6;border-radius:8px;padding:12px;font-size:13px;margin-bottom:12px;line-height:2">
+      Torpedo charge: <strong>${Math.round(cr.charge)}%</strong><br>
+      Hull: ${hpDots(cr.hp,G.maxHp)}<br>
+      Sonar fix: <strong>${cr.sonarFix?'Confirmed':'Not yet'}</strong><br>
+      Captain approval: <strong>${cr.fireApproved?'Approved':'Not approved'}</strong>
+    </div>
+    ${!ready ? `<button class="pri" onclick="readyRole('comms')">Status relayed to all stations</button>` :
+    `<p style="color:#1d9e75;font-weight:600">&#10003; Relayed.</p>`}
+  </div>
+  ${renderMiniLog()}`;
+}
+
+function renderDamage() {
+  const cr = G[myCrew];
+  const ready = G.rolesReady[myCrew]['damage'];
+  return statusCard() + `
+  <div class="card">
+    <p class="card-title">Damage control</p>
+    <p style="font-size:13px;margin-bottom:8px">Hull integrity: ${hpDots(cr.hp, G.maxHp)} (${cr.hp}/${G.maxHp} HP)</p>
+    <p style="font-size:12px;color:#888;margin-bottom:12px">Run hull check each turn. After a hit, you have priority — get the captain to end their turn so repairs can begin.</p>
+    ${!ready ? `<button class="pri" onclick="readyRole('damage')">Hull check complete</button>` :
+    `<p style="color:#1d9e75;font-weight:600">&#10003; Hull checked.</p>`}
+  </div>
+  ${renderMiniLog()}`;
+}
+
+function renderDecoy() {
+  const cr = G[myCrew];
+  const ready = G.rolesReady[myCrew]['decoy'];
+  return statusCard() + `
+  <div class="card">
+    <p class="card-title">Decoy operator</p>
+    <p style="font-size:12px;color:#888;margin-bottom:12px">Deploy a false heading to mislead enemy sonar. One use per game — use it wisely.</p>
+    ${!cr.decoyUsed ?
+      `<button class="danger" onclick="deployDecoy()">&#128123; Deploy decoy (1 remaining)</button>` :
+      `<span class="badge badge-gray">Decoy used</span>`}
+    <div style="margin-top:10px">
+      ${!ready ? `<button onclick="readyRole('decoy')" style="margin-top:6px">Station nominal</button>` :
+      `<p style="color:#1d9e75;font-weight:600;margin-top:6px">&#10003; Ready.</p>`}
+    </div>
+  </div>
+  ${renderMiniLog()}`;
+}
+
+function renderMiniLog() {
+  return `<div class="card" style="background:#f8f8f6">
+    <p class="card-title">Game log</p>
+    ${G.log.slice(0,6).map(l => `<div class="log-entry ${l.startsWith('***')?'important':''}">${l}</div>`).join('')}
+  </div>`;
+}
+
+function bindPostRender() {
+  if (myRole==='navigator') {
+    const el = document.getElementById('nav-grid-wrap');
+    if (el) buildClickGrid(el, navMarks, ()=>{});
+  }
+  if (myRole==='sonar') {
+    const el = document.getElementById('sonar-grid-wrap');
+    if (el) buildClickGrid(el, sonarMarks, ()=>{});
+  }
+  if (myRole==='weapons' && G[myCrew].charge>=100 && G[myCrew].sonarFix && G[myCrew].fireApproved) {
+    const el = document.getElementById('fire-grid-wrap');
+    if (el) buildFireGrid(el);
+  }
+}
+
+function buildClickGrid(wrap, marks, onChange) {
+  wrap.innerHTML = '';
+  const container = document.createElement('div');
+  container.style.cssText = 'display:inline-block;line-height:0';
+  for (let r=0;r<G.size;r++) {
+    const row = document.createElement('div');
+    for (let c=0;c<G.size;c++) {
+      const cell = document.createElement('div');
+      const key = r+','+c;
+      cell.className = 'cell' + (marks[key]?' mark':'');
+      cell.style.width = cell.style.height = (G.size <= 8 ? '34px' : G.size <= 10 ? '30px' : '26px');
+      cell.onclick = () => { marks[key]=!marks[key]; buildClickGrid(wrap,marks,onChange); onChange(); };
+      row.appendChild(cell);
+    }
+    container.appendChild(row);
+  }
+  wrap.appendChild(container);
+}
+
+function buildFireGrid(wrap) {
+  const cr = G[myCrew], opp = G[myCrew==='A'?'B':'A'];
+  wrap.innerHTML = '';
+  const container = document.createElement('div');
+  container.style.cssText = 'display:inline-block;line-height:0';
+  for (let r=0;r<G.size;r++) {
+    const row = document.createElement('div');
+    for (let c=0;c<G.size;c++) {
+      const cell = document.createElement('div');
+      const state = cr.targetHits[r][c];
+      const sz = G.size <= 8 ? '34px' : G.size <= 10 ? '30px' : '26px';
+      cell.style.width = cell.style.height = sz;
+      if (state===1) { cell.className='cell hit'; cell.textContent='X'; }
+      else if (state===2) { cell.className='cell miss'; cell.textContent='o'; }
+      else { cell.className='cell fire-target'; cell.onclick=()=>fireTorpedo(r,c); }
+      row.appendChild(cell);
+    }
+    container.appendChild(row);
+  }
+  wrap.appendChild(container);
+}
+
+function triggerPing(dir) {
+  const arrows = {N:'↑',S:'↓',W:'←',E:'→'};
+  const ov = document.getElementById('ping-overlay');
+  const ad = document.getElementById('ping-arrow');
+  const lb = document.getElementById('ping-label');
+  ad.textContent = arrows[dir]||dir;
+  lb.textContent = 'Enemy heading: ' + dir;
+  ov.classList.add('show');
+  ad.style.animation = 'none';
+  lb.style.animation = 'none';
+  setTimeout(()=>{ ad.style.animation='pingfade 2.5s forwards'; lb.style.animation='pingfade 2.5s forwards'; },30);
+  setTimeout(()=>ov.classList.remove('show'), 2800);
+}
+
+function genEngineQ() {
+  const target = Math.floor(Math.random()*10)+8;
+  const a = Math.floor(Math.random()*(target-1))+1;
+  const correct = [a, target-a];
+  const others = [[a+2,target-a+1],[a-1,target-a+3],[Math.floor(target/2)+3,target-Math.floor(target/2)+2]];
+  const opts = [correct,...others].sort(()=>Math.random()-0.5);
+  G.engineQ = {target, correctIdx: opts.findIndex(p=>p[0]===correct[0]&&p[1]===correct[1]), opts};
+}
+
+function checkEng(i) {
+  const q = G.engineQ;
+  const el = document.getElementById('eopt-'+i);
+  if (i === q.correctIdx) {
+    el.classList.add('correct');
+    G.engineQ = null;
+    setTimeout(()=>readyRole('engineer'), 400);
+  } else {
+    el.classList.add('wrong');
+    setTimeout(()=>el.classList.remove('wrong'), 700);
+    addLog(crewName(myCrew)+' engineer: wrong answer');
+  }
+}
+
+function captainMove(dir) {
+  const dirs = {N:{r:-1,c:0},S:{r:1,c:0},W:{r:0,c:-1},E:{r:0,c:1}};
+  const d = dirs[dir];
+  const cr = G[myCrew];
+  const nr = cr.pos.r+d.r, nc = cr.pos.c+d.c;
+  if (nr<0||nr>=G.size||nc<0||nc>=G.size) { notify('Out of bounds! Pick another heading.'); return; }
+  if (cr.trail.some(t=>t.r===nr&&t.c===nc)) { notify('Cannot revisit a square!'); return; }
+  cr.pos = {r:nr,c:nc};
+  cr.trail.push({r:nr,c:nc});
+  G.lastHeading = dir;
+  G.lastHeadingCrew = myCrew;
+  G.rolesReady[myCrew]['captain'] = true;
+  addLog(crewName(myCrew)+' heading: '+dir);
+  send({ type:'sonar_ping', room:roomCode, heading:dir, crew:myCrew });
+  checkAllReady();
+  pushState();
+  renderStation();
+}
+
+function navClear() { navMarks={}; bindPostRender(); }
+function navConfirm() { readyRole('navigator'); }
+function sonarClear() { sonarMarks={}; bindPostRender(); }
+
+function chargeWeapons() {
+  G[myCrew].charge = Math.min(100, G[myCrew].charge+25);
+  readyRole('weapons');
+}
+
+function confirmSonar() {
+  G[myCrew].sonarFix = true;
+  G.rolesReady[myCrew]['sonar'] = true;
+  addLog(crewName(myCrew)+' sonar fix confirmed');
+  checkAllReady();
+  pushState();
+  renderStation();
+}
+
+function captainApprove() {
+  G[myCrew].fireApproved = true;
+  addLog(crewName(myCrew)+' captain approved fire');
+  pushState();
+  renderStation();
+}
+
+function deployDecoy() {
+  if (G[myCrew].decoyUsed) return;
+  G[myCrew].decoyUsed = true;
+  const fakeDir = ['N','S','E','W'].filter(x=>x!==G.lastHeading)[Math.floor(Math.random()*3)];
+  const opp = myCrew==='A'?'B':'A';
+  G[opp].sonarFix = false;
+  addLog(crewName(myCrew)+' DECOY deployed — enemy sonar wiped');
+  send({ type:'sonar_ping', room:roomCode, heading:fakeDir, crew:myCrew });
+  pushState();
+  renderStation();
+}
+
+function readyRole(rid) {
+  G.rolesReady[myCrew][rid] = true;
+  addLog(crewName(myCrew)+' — '+ROLES_DEF.find(r=>r.id===rid).name+' ready');
+  checkAllReady();
+  pushState();
+  renderStation();
+}
+
+function checkAllReady() {
+  const roles = G.players[myCrew].map(p=>p.role);
+  const allDone = roles.every(rid => G.rolesReady[myCrew][rid]);
+  if (allDone && G.phase==='move') {
+    G.phase = 'fire';
+    addLog(crewName(myCrew)+' — all stations ready. Fire decision.');
+  }
+}
+
+function fireTorpedo(r, c) {
+  const cr = G[myCrew];
+  const opp = myCrew==='A'?'B':'A';
+  const oppCr = G[opp];
+  cr.charge = 0; cr.sonarFix = false; cr.fireApproved = false;
+  const hit = oppCr.pos.r===r && oppCr.pos.c===c;
+  cr.targetHits[r][c] = hit?1:2;
+  if (hit) {
+    oppCr.hp--;
+    addLog('TORPEDO HIT by '+crewName(myCrew)+' at ('+(r+1)+','+(c+1)+'). '+crewName(opp)+' HP: '+oppCr.hp, true);
+    if (oppCr.hp<=0) {
+      addLog(crewName(myCrew)+' WINS!', true);
+      pushState();
+      document.getElementById('win-title').textContent = crewName(myCrew)+' wins!';
+      document.getElementById('win-sub').textContent = crewName(opp)+' has been sunk on turn '+G.turn+'.';
+      show('s-win'); return;
+    }
+  } else {
+    addLog('Torpedo missed at ('+(r+1)+','+(c+1)+') by '+crewName(myCrew));
+  }
+  endTurn();
+}
+
+function endTurn() {
+  G.rolesReady[myCrew] = {};
+  G.phase = 'move';
+  G[myCrew].fireApproved = false;
+  const next = myCrew==='A'?'B':'A';
+  G.activeCrew = next;
+  if (myCrew==='B') G.turn++;
+  G.engineQ = null;
+  addLog('--- Turn '+G.turn+' — '+crewName(next)+"'s move ---");
+  pushState();
+  renderStation();
+}
+
+setInterval(()=>{ if(WS&&WS.readyState===1) send({type:'ping'}); }, 25000);
+</script>
+</body>
+</html>
