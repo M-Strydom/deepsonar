@@ -32,6 +32,34 @@ function broadcast(code, msg, excludeWs) {
   rooms[code].clients.forEach(c => { if (c !== excludeWs && c.readyState === 1) c.send(data); });
 }
 
+// Assign roles to a crew fairly:
+// - Captain is always guaranteed to exactly one person
+// - Remaining 6 roles are shuffled and distributed round-robin
+// - Each player gets as equal a number of roles as possible
+// - Returns: [{name, roles:[...]}]
+function assignRoles(crew) {
+  if (crew.length === 0) return [];
+
+  const supporting = ['navigator','engineer','weapons','sonar','damage','decoy']
+    .sort(() => Math.random() - 0.5);
+
+  // Shuffle crew so captain doesn't always go to first joiner
+  const shuffled = [...crew].sort(() => Math.random() - 0.5);
+  const stacks = shuffled.map(() => []);
+
+  // Slot 0 gets captain
+  stacks[0].push('captain');
+
+  // Distribute supporting roles round-robin starting at slot 1
+  // so slot 0 (captain) gets the last extra role if uneven, not the first
+  supporting.forEach((role, i) => {
+    const slot = (i + 1) % shuffled.length;
+    stacks[slot].push(role);
+  });
+
+  return shuffled.map((name, i) => ({ name, roles: stacks[i] }));
+}
+
 wss.on('connection', (ws) => {
   let currentRoom = null;
 
@@ -65,23 +93,16 @@ wss.on('connection', (ws) => {
       const r = rooms[room];
       if (!r || ws !== r.hostWs) return;
       const names = r.lobby.map(p => p.name);
-      if (names.length < 2) { ws.send(JSON.stringify({ type: 'error', msg: 'Need at least 2 players.' })); return; }
-
-      // shuffle
-      for (let i = names.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [names[i], names[j]] = [names[j], names[i]];
+      if (names.length < 2) {
+        ws.send(JSON.stringify({ type: 'error', msg: 'Need at least 2 players to start.' }));
+        return;
       }
 
-      const half = Math.ceil(names.length / 2);
-      const crewA = names.slice(0, half);
-      const crewB = names.slice(half);
-
-      const ROLES = ['captain','navigator','engineer','weapons','sonar','comms','damage','decoy'];
-      function assignRoles(crew) {
-        const roles = [...ROLES].sort(() => Math.random() - 0.5);
-        return crew.map((name, i) => ({ name, role: roles[i % roles.length] }));
-      }
+      // Shuffle and split into two balanced crews
+      const shuffled = [...names].sort(() => Math.random() - 0.5);
+      const half = Math.ceil(shuffled.length / 2);
+      const crewA = shuffled.slice(0, half);
+      const crewB = shuffled.slice(half);
 
       const s = r.settings;
       const size = s.size;

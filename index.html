@@ -5,68 +5,98 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Deep Sonar</title>
 <style>
+:root{
+  --bg:#050e08;
+  --bg2:#0a1a0f;
+  --bg3:#0f2416;
+  --border:#1a4025;
+  --border2:#225030;
+  --green:#00ff88;
+  --green2:#00cc66;
+  --green3:#009944;
+  --green4:#006633;
+  --dim:#004422;
+  --text:#00ff88;
+  --text2:#00cc66;
+  --text3:#009944;
+  --red:#ff4444;
+  --amber:#ffaa00;
+  --scan: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,136,0.03) 2px, rgba(0,255,136,0.03) 4px);
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f3;color:#1a1a1a;min-height:100vh}
-.wrap{max-width:660px;margin:0 auto;padding:1.5rem 1rem}
-.card{background:#fff;border:1px solid #e0e0dc;border-radius:12px;padding:1.25rem;margin-bottom:12px}
-.ct{font-size:13px;font-weight:600;margin-bottom:10px;color:#555}
-h1{font-size:24px;font-weight:600;margin-bottom:4px}
-h2{font-size:18px;font-weight:600;margin-bottom:1rem}
-p{line-height:1.6}
-button{cursor:pointer;font-family:inherit;font-size:13px;padding:8px 16px;border-radius:8px;border:1px solid #ccc;background:#fff;color:#1a1a1a;transition:all 0.15s}
-button:hover{background:#f0f0ee}
+html,body{height:100%}
+body{font-family:'Courier New',Courier,monospace;background:var(--bg);color:var(--text);min-height:100vh;background-image:var(--scan)}
+.wrap{max-width:680px;margin:0 auto;padding:1.5rem 1rem}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:1.25rem;margin-bottom:12px;position:relative}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--green3),transparent);opacity:0.4}
+.ct{font-size:11px;font-weight:700;margin-bottom:10px;color:var(--text3);letter-spacing:0.15em;text-transform:uppercase}
+h1{font-size:22px;font-weight:700;margin-bottom:4px;color:var(--green);letter-spacing:0.08em;text-shadow:0 0 20px rgba(0,255,136,0.3)}
+h2{font-size:16px;font-weight:700;margin-bottom:1rem;color:var(--green);letter-spacing:0.05em}
+p{line-height:1.6;color:var(--text2)}
+button{cursor:pointer;font-family:'Courier New',monospace;font-size:12px;padding:9px 16px;border-radius:2px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);transition:all 0.15s;letter-spacing:0.05em;text-transform:uppercase}
+button:hover{background:var(--dim);border-color:var(--green3);color:var(--green)}
 button:active{transform:scale(0.98)}
-button.pri{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
-button.pri:hover{background:#333}
-button.success{background:#f0faf5;color:#0f6e56;border-color:#5dcaa5}
-button.success:hover{background:#e0f5ec}
-button.danger{background:#fff0f0;color:#a32d2d;border-color:#f09595}
-button:disabled{opacity:0.4;cursor:not-allowed;transform:none}
-input,select,textarea{width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:8px;font-size:13px;font-family:inherit;background:#fff;color:#1a1a1a}
-input:focus,select:focus{outline:none;border-color:#378add}
-label{display:block;font-size:11px;font-weight:600;color:#999;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em}
+button.pri{background:var(--green4);color:var(--green);border-color:var(--green3)}
+button.pri:hover{background:var(--dim);border-color:var(--green)}
+button.fire{background:rgba(255,68,68,0.15);color:var(--red);border-color:rgba(255,68,68,0.4)}
+button.fire:hover{background:rgba(255,68,68,0.25);border-color:var(--red)}
+button.approve{background:rgba(0,255,136,0.1);color:var(--green);border-color:var(--green3)}
+button.approve:hover{background:rgba(0,255,136,0.2)}
+button:disabled{opacity:0.3;cursor:not-allowed;transform:none}
+input,select,textarea{width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:2px;font-size:13px;font-family:'Courier New',monospace;background:var(--bg2);color:var(--text);letter-spacing:0.03em}
+input:focus,select:focus{outline:none;border-color:var(--green3);box-shadow:0 0 8px rgba(0,255,136,0.15)}
+input::placeholder{color:var(--text3);opacity:0.6}
+label{display:block;font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px;letter-spacing:0.12em;text-transform:uppercase}
+select option{background:var(--bg2);color:var(--text)}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.badge{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:6px}
-.b-blue{background:#e6f1fb;color:#0c447c}
-.b-teal{background:#e1f5ee;color:#085041}
-.b-red{background:#fcebeb;color:#791f1f}
-.b-amber{background:#faeeda;color:#633806}
-.b-gray{background:#f1efe8;color:#444}
-.b-purple{background:#eeedfe;color:#3c3489}
+.badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:2px;letter-spacing:0.08em;text-transform:uppercase}
+.b-green{background:rgba(0,255,136,0.1);color:var(--green);border:1px solid var(--green4)}
+.b-dim{background:rgba(0,100,50,0.2);color:var(--text3);border:1px solid var(--border)}
+.b-red{background:rgba(255,68,68,0.1);color:var(--red);border:1px solid rgba(255,68,68,0.3)}
+.b-amber{background:rgba(255,170,0,0.1);color:var(--amber);border:1px solid rgba(255,170,0,0.3)}
 .scr{display:none}
 .scr.on{display:block}
-.cell{width:30px;height:30px;border:1px solid #e0e0dc;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;transition:background 0.1s;vertical-align:top;user-select:none}
-.cell:hover{background:#f0f0ee}
-.cell.mark{background:#e1f5ee}
-.cell.hit{background:#fcebeb;color:#a32d2d}
-.cell.miss{background:#e6f1fb;color:#185fa5}
-.cell.target:hover{background:#fff0f0;cursor:crosshair}
-.hp-pip{width:11px;height:11px;border-radius:50%;display:inline-block;margin-right:3px}
-.prog{height:8px;background:#f0f0ee;border-radius:4px;overflow:hidden;margin:6px 0}
-.prog-fill{height:100%;border-radius:4px;background:#185fa5;transition:width 0.4s}
-.ping-wrap{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(24,95,165,0.1);z-index:100;align-items:center;justify-content:center;flex-direction:column;pointer-events:none}
+.cell{width:28px;height:28px;border:1px solid var(--border);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;transition:all 0.1s;vertical-align:top;user-select:none;background:var(--bg);font-family:'Courier New',monospace;color:var(--text3)}
+.cell:hover{background:var(--bg3);border-color:var(--green4)}
+.cell.mark{background:rgba(0,255,136,0.08);border-color:var(--green4);color:var(--green3)}
+.cell.hit{background:rgba(255,68,68,0.15);color:var(--red);border-color:rgba(255,68,68,0.4)}
+.cell.miss{background:var(--bg3);color:var(--text3);border-color:var(--border2)}
+.cell.target:hover{background:rgba(255,68,68,0.12);cursor:crosshair;border-color:rgba(255,68,68,0.4)}
+.hp-pip{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:3px}
+.prog{height:6px;background:var(--bg3);border-radius:0;overflow:hidden;margin:6px 0;border:1px solid var(--border)}
+.prog-fill{height:100%;background:var(--green3);transition:width 0.4s;box-shadow:0 0 6px rgba(0,255,136,0.4)}
+.ping-wrap{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,20,10,0.85);z-index:100;align-items:center;justify-content:center;flex-direction:column;pointer-events:none}
 .ping-wrap.show{display:flex}
-.ping-arrow{font-size:110px;font-weight:700;color:#185fa5;animation:pf 2.5s forwards}
-.ping-text{font-size:16px;font-weight:600;color:#185fa5;margin-top:6px;animation:pf 2.5s forwards}
-@keyframes pf{0%{opacity:1;transform:scale(1.1)}75%{opacity:1}100%{opacity:0;transform:scale(0.9)}}
-.toast{position:fixed;bottom:20px;right:20px;background:#1a1a1a;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:200;opacity:0;transition:opacity 0.3s;pointer-events:none;max-width:280px}
+.ping-arrow{font-size:100px;font-weight:700;color:var(--green);animation:pf 2.5s forwards;text-shadow:0 0 40px rgba(0,255,136,0.6)}
+.ping-text{font-size:14px;font-weight:700;color:var(--green2);margin-top:12px;animation:pf 2.5s forwards;letter-spacing:0.2em;text-transform:uppercase}
+@keyframes pf{0%{opacity:1;transform:scale(1.05)}75%{opacity:1}100%{opacity:0;transform:scale(0.95)}}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--bg3);color:var(--text);border:1px solid var(--green4);padding:10px 16px;border-radius:2px;font-size:12px;z-index:200;opacity:0;transition:opacity 0.3s;pointer-events:none;max-width:280px;letter-spacing:0.03em}
 .toast.show{opacity:1}
-.player-chip{display:inline-flex;align-items:center;gap:6px;background:#f5f5f3;border:1px solid #e0e0dc;border-radius:20px;padding:5px 12px;font-size:13px;margin:4px}
-.sbar{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #e0e0dc;border-radius:10px;padding:10px 14px;margin-bottom:12px}
-.cdot{width:8px;height:8px;border-radius:50%;background:#ddd;display:inline-block;margin-right:5px;transition:background 0.3s}
-.cdot.on{background:#1d9e75}
-.cdot.off{background:#e24b4a}
-.eng-opt{padding:14px;border:1px solid #e0e0dc;border-radius:8px;cursor:pointer;text-align:center;font-size:15px;font-weight:600;transition:all 0.15s;background:#fff}
-.eng-opt:hover{background:#f5f5f3;border-color:#888}
-.eng-opt.correct{background:#e1f5ee;border-color:#1d9e75;color:#085041}
-.eng-opt.wrong{background:#fcebeb;border-color:#e24b4a;color:#791f1f;animation:shake 0.3s}
+.sbar{display:flex;align-items:center;justify-content:space-between;background:var(--bg2);border:1px solid var(--border);border-radius:2px;padding:10px 14px;margin-bottom:12px}
+.cdot{width:8px;height:8px;border-radius:50%;background:var(--border2);display:inline-block;margin-right:6px;transition:all 0.3s}
+.cdot.on{background:var(--green3);box-shadow:0 0 6px rgba(0,255,136,0.5)}
+.cdot.off{background:var(--red)}
+.eng-opt{padding:14px;border:1px solid var(--border2);border-radius:2px;cursor:pointer;text-align:center;font-size:16px;font-weight:700;transition:all 0.15s;background:var(--bg2);color:var(--text2);font-family:'Courier New',monospace}
+.eng-opt:hover{background:var(--bg3);border-color:var(--green3);color:var(--green)}
+.eng-opt.correct{background:rgba(0,255,136,0.1);border-color:var(--green3);color:var(--green)}
+.eng-opt.wrong{background:rgba(255,68,68,0.1);border-color:rgba(255,68,68,0.4);color:var(--red);animation:shake 0.3s}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
-.log-line{font-size:12px;padding:4px 0;border-bottom:1px solid #f5f5f3;color:#888;line-height:1.5}
+.log-line{font-size:11px;padding:4px 0;border-bottom:1px solid var(--border);color:var(--text3);line-height:1.5;letter-spacing:0.02em}
 .log-line:last-child{border:none}
-.log-line.imp{color:#1a1a1a;font-weight:600}
-.lobby-player{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f5f5f3;font-size:14px}
-.lobby-player:last-child{border:none}
-.avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0}
+.log-line.imp{color:var(--green);font-weight:700}
+.lobby-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.lobby-row:last-child{border:none}
+.avatar{width:32px;height:32px;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;border:1px solid var(--green4);background:var(--bg3);color:var(--green3)}
+.sonar-ring{width:200px;height:200px;border-radius:50%;border:1px solid var(--green4);display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;position:relative;background:radial-gradient(circle,rgba(0,255,136,0.03) 0%,transparent 70%)}
+.sonar-ring::before{content:'';position:absolute;width:66%;height:66%;border-radius:50%;border:1px solid var(--green4);opacity:0.5}
+.sonar-ring::after{content:'';position:absolute;width:33%;height:33%;border-radius:50%;border:1px solid var(--green4);opacity:0.3}
+.sonar-sweep{position:absolute;width:50%;height:1px;background:linear-gradient(90deg,transparent,var(--green3));top:50%;left:50%;transform-origin:left center;animation:sweep 4s linear infinite}
+@keyframes sweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.divider{border:none;border-top:1px solid var(--border);margin:12px 0}
+.role-section{border-top:2px solid var(--green4);margin-top:8px;padding-top:12px}
+.role-label{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:8px;padding:4px 8px;background:var(--bg3);display:inline-block}
+/* scanline flicker */
+body::after{content:'';position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.08) 3px,rgba(0,0,0,0.08) 4px);z-index:1000}
 </style>
 </head>
 <body>
@@ -81,24 +111,25 @@ label{display:block;font-size:11px;font-weight:600;color:#999;margin-bottom:4px;
 
 <!-- HOME -->
 <div id="s-home" class="scr on">
-  <div style="padding:0.5rem 0 1.5rem">
-    <h1>Deep Sonar</h1>
-    <p style="color:#888;font-size:14px;margin-top:4px">Two submarines. One ocean. Sink them first.</p>
+  <div style="padding:1rem 0 1.5rem;text-align:center">
+    <div class="sonar-ring"><div class="sonar-sweep"></div></div>
+    <h1>DEEP SONAR</h1>
+    <p style="color:var(--text3);font-size:12px;letter-spacing:0.15em;margin-top:4px">TWO SUBMARINES &mdash; ONE OCEAN</p>
   </div>
   <div class="card">
     <div class="g2">
-      <button class="pri" onclick="show('s-host')" style="padding:14px;font-size:14px">Host a game</button>
-      <button onclick="show('s-join')" style="padding:14px;font-size:14px">Join a game</button>
+      <button class="pri" onclick="show('s-host')" style="padding:14px">[ HOST GAME ]</button>
+      <button onclick="show('s-join')" style="padding:14px">[ JOIN GAME ]</button>
     </div>
   </div>
-  <div class="card" style="background:#f8f8f6;border-color:#e8e8e4">
-    <p class="ct">How to play</p>
-    <p style="font-size:13px;color:#666;line-height:1.9">
-      1. Host creates a game — gets a 5-letter room code<br>
-      2. Share the code with your team in Zoom<br>
-      3. Everyone joins, enters their name<br>
-      4. Host hits Start — teams &amp; roles assigned randomly<br>
-      5. Each crew goes to their Zoom breakout room and plays
+  <div class="card">
+    <p class="ct">Mission briefing</p>
+    <p style="font-size:12px;color:var(--text3);line-height:2">
+      01. Host creates game &mdash; receives room code<br>
+      02. Crew members join via code<br>
+      03. Host launches &mdash; teams &amp; roles assigned randomly<br>
+      04. Each crew to their Zoom breakout room<br>
+      05. Find the enemy sub and sink it
     </p>
   </div>
 </div>
@@ -106,36 +137,36 @@ label{display:block;font-size:11px;font-weight:600;color:#999;margin-bottom:4px;
 <!-- HOST SETUP -->
 <div id="s-host" class="scr">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.5rem">
-    <button onclick="show('s-home')">&#8592; Back</button>
-    <h2 style="margin:0">Host setup</h2>
+    <button onclick="show('s-home')">&lt; BACK</button>
+    <h2 style="margin:0">HOST SETUP</h2>
   </div>
   <div class="card">
-    <p class="ct">Crew names</p>
+    <p class="ct">Submarine designations</p>
     <div class="g2">
-      <div><label>Crew Alpha</label><input id="h-nameA" value="Red Tide"></div>
-      <div><label>Crew Bravo</label><input id="h-nameB" value="Deep Six"></div>
+      <div><label>Sub Alpha</label><input id="h-nameA" value="Red Tide"></div>
+      <div><label>Sub Bravo</label><input id="h-nameB" value="Deep Six"></div>
     </div>
   </div>
   <div class="card">
-    <p class="ct">Game settings</p>
+    <p class="ct">Mission parameters</p>
     <div class="g2">
       <div><label>Grid size</label>
         <select id="h-grid">
-          <option value="10">10 × 10 (standard)</option>
-          <option value="12">12 × 12 (large)</option>
-          <option value="8">8 × 8 (quick)</option>
+          <option value="10">10 x 10 — Standard</option>
+          <option value="12">12 x 12 — Large</option>
+          <option value="8">8 x 8 — Quick</option>
         </select>
       </div>
       <div><label>Hits to sink</label>
         <select id="h-hp">
           <option value="3" selected>3 hits</option>
           <option value="5">5 hits</option>
-          <option value="2">2 hits (fast)</option>
+          <option value="2">2 hits — Fast</option>
         </select>
       </div>
     </div>
   </div>
-  <button class="pri" onclick="hostCreate()" style="width:100%;padding:12px;font-size:14px">Create game &amp; get room code</button>
+  <button class="pri" onclick="hostCreate()" style="width:100%;padding:12px">[ INITIALISE GAME ]</button>
   <div id="host-code-area"></div>
 </div>
 
@@ -143,62 +174,63 @@ label{display:block;font-size:11px;font-weight:600;color:#999;margin-bottom:4px;
 <div id="s-host-lobby" class="scr">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
     <div>
-      <h2 style="margin:0">Lobby</h2>
-      <p style="font-size:13px;color:#888;margin-top:2px">Waiting for players to join</p>
+      <h2 style="margin:0">CREW ASSEMBLY</h2>
+      <p style="font-size:11px;color:var(--text3);letter-spacing:0.1em;margin-top:2px">AWAITING CREW</p>
     </div>
-    <span id="hl-room-badge" class="badge b-blue" style="font-size:16px;letter-spacing:0.1em;padding:6px 14px"></span>
+    <span id="hl-room-badge" style="font-size:22px;font-weight:700;color:var(--green);letter-spacing:0.2em;text-shadow:0 0 15px rgba(0,255,136,0.4)"></span>
   </div>
-  <div class="card" style="background:#f0faf5;border-color:#5dcaa5">
-    <p class="ct" style="color:#085041">Share this code</p>
-    <p style="font-size:13px;color:#0f6e56;margin-bottom:10px">Tell everyone to open the game URL, click "Join a game" and enter this code.</p>
-    <button onclick="copyCode()" style="width:100%;border-color:#5dcaa5;color:#085041">Copy room code</button>
+  <div class="card" style="border-color:var(--green4)">
+    <p class="ct">Broadcast code</p>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:10px;letter-spacing:0.05em">Transmit this code to your crew. They open the game URL and enter it to board.</p>
+    <button onclick="copyCode()" style="width:100%">[ COPY ROOM CODE ]</button>
   </div>
   <div class="card">
-    <p class="ct">Players in lobby (<span id="hl-count">0</span>)</p>
+    <p class="ct">Crew manifest — <span id="hl-count">0</span> aboard</p>
     <div id="hl-players"></div>
-    <p style="font-size:12px;color:#bbb;margin-top:8px" id="hl-empty">No players yet — share the code above</p>
+    <p style="font-size:11px;color:var(--text3);margin-top:8px;letter-spacing:0.05em" id="hl-empty">No crew yet. Share the code above.</p>
   </div>
-  <button class="success" id="hl-start-btn" onclick="startGame()" style="width:100%;padding:12px;font-size:14px" disabled>Start game — assign teams randomly</button>
-  <p style="font-size:12px;color:#888;text-align:center;margin-top:8px">Teams and roles are assigned randomly when you click start.</p>
+  <button class="approve" id="hl-start-btn" onclick="startGame()" style="width:100%;padding:12px" disabled>[ LAUNCH — ASSIGN TEAMS RANDOMLY ]</button>
+  <p style="font-size:11px;color:var(--text3);text-align:center;margin-top:8px;letter-spacing:0.05em">Teams and roles assigned at random on launch.</p>
 </div>
 
 <!-- JOIN -->
 <div id="s-join" class="scr">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.5rem">
-    <button onclick="show('s-home')">&#8592; Back</button>
-    <h2 style="margin:0">Join game</h2>
+    <button onclick="show('s-home')">&lt; BACK</button>
+    <h2 style="margin:0">BOARD SUBMARINE</h2>
   </div>
   <div class="card">
-    <div style="margin-bottom:10px"><label>Room code</label>
-      <input id="join-code" placeholder="e.g. XKQT2" style="text-transform:uppercase;letter-spacing:0.12em;font-size:20px;text-align:center" maxlength="5">
+    <div style="margin-bottom:12px"><label>Room code</label>
+      <input id="join-code" placeholder="ENTER CODE" style="text-transform:uppercase;letter-spacing:0.2em;font-size:22px;text-align:center" maxlength="5">
     </div>
-    <div style="margin-bottom:12px"><label>Your name</label>
-      <input id="join-name" placeholder="Your first name">
+    <div style="margin-bottom:14px"><label>Your name</label>
+      <input id="join-name" placeholder="Crew member name">
     </div>
-    <button class="pri" onclick="joinGame()" style="width:100%;padding:11px">Join</button>
-    <p id="join-err" style="color:#a32d2d;font-size:12px;margin-top:8px;display:none"></p>
+    <button class="pri" onclick="joinGame()" style="width:100%;padding:12px">[ BOARD ]</button>
+    <p id="join-err" style="color:var(--red);font-size:11px;margin-top:8px;display:none;letter-spacing:0.05em"></p>
   </div>
 </div>
 
-<!-- PLAYER LOBBY (waiting for host to start) -->
+<!-- PLAYER LOBBY -->
 <div id="s-player-lobby" class="scr" style="text-align:center;padding:2rem 0">
-  <div style="font-size:48px;margin-bottom:12px">&#128674;</div>
-  <h2 id="pl-title">You're in!</h2>
-  <p style="color:#888;font-size:14px;margin-bottom:1.5rem" id="pl-sub">Waiting for the host to start the game...</p>
+  <div class="sonar-ring" style="margin-bottom:1.5rem"><div class="sonar-sweep"></div></div>
+  <h2 id="pl-title">ABOARD</h2>
+  <p style="color:var(--text3);font-size:12px;margin-bottom:1.5rem;letter-spacing:0.1em" id="pl-sub">AWAITING LAUNCH ORDER...</p>
   <div class="card" style="text-align:left">
-    <p class="ct">Players joined (<span id="pl-count">0</span>)</p>
+    <p class="ct">Crew manifest — <span id="pl-count">0</span> aboard</p>
     <div id="pl-players"></div>
   </div>
 </div>
 
 <!-- ROLE REVEAL -->
-<div id="s-role-reveal" class="scr" style="text-align:center;padding:2rem 0">
-  <div style="font-size:48px;margin-bottom:12px" id="rr-icon"></div>
+<div id="s-role-reveal" class="scr" style="text-align:center;padding:1.5rem 0">
+  <p style="font-size:11px;color:var(--text3);letter-spacing:0.2em;margin-bottom:12px">ASSIGNMENT RECEIVED</p>
+  <div style="font-size:48px;margin-bottom:10px" id="rr-icon"></div>
   <h2 id="rr-crew" style="margin-bottom:4px"></h2>
-  <p style="font-size:14px;color:#888;margin-bottom:8px" id="rr-role-name"></p>
-  <p style="font-size:13px;color:#666;max-width:340px;margin:0 auto 1.5rem;line-height:1.7" id="rr-role-desc"></p>
-  <div class="card" style="text-align:left;margin-bottom:12px" id="rr-crew-list"></div>
-  <button class="pri" onclick="goToStation()" style="padding:12px 32px;font-size:14px">Go to my station</button>
+  <p style="font-size:13px;color:var(--text3);margin-bottom:6px;letter-spacing:0.08em" id="rr-role-name"></p>
+  <p style="font-size:12px;color:var(--text3);max-width:380px;margin:0 auto 1.5rem;line-height:1.8;white-space:pre-line" id="rr-role-desc"></p>
+  <div class="card" style="text-align:left;margin-bottom:14px" id="rr-crew-list"></div>
+  <button class="pri" onclick="goToStation()" style="padding:12px 32px">[ PROCEED TO STATION ]</button>
 </div>
 
 <!-- STATION -->
@@ -206,12 +238,12 @@ label{display:block;font-size:11px;font-weight:600;color:#999;margin-bottom:4px;
   <div class="sbar">
     <div>
       <span class="cdot" id="st-cdot"></span>
-      <span id="st-role-badge" class="badge b-blue" style="margin-right:5px"></span>
-      <span id="st-crew-badge" class="badge b-teal"></span>
+      <span id="st-role-badge" class="badge b-green" style="margin-right:6px"></span>
+      <span id="st-crew-badge" class="badge b-dim"></span>
     </div>
     <div style="display:flex;gap:6px;align-items:center">
-      <span style="font-size:12px;color:#888">Turn <span id="st-turn">1</span></span>
-      <button onclick="show('s-role-reveal')" style="font-size:11px;padding:4px 8px">My role</button>
+      <span style="font-size:11px;color:var(--text3);letter-spacing:0.08em">TURN <span id="st-turn">1</span></span>
+      <button onclick="show('s-role-reveal')" style="font-size:10px;padding:4px 8px">ROLES</button>
     </div>
   </div>
   <div id="station-body"></div>
@@ -219,41 +251,87 @@ label{display:block;font-size:11px;font-weight:600;color:#999;margin-bottom:4px;
 
 <!-- WIN -->
 <div id="s-win" class="scr" style="text-align:center;padding:3rem 1rem">
-  <div style="font-size:64px;margin-bottom:1rem">&#127881;</div>
+  <div class="sonar-ring" style="margin-bottom:1.5rem"><div class="sonar-sweep"></div></div>
   <h1 id="win-title" style="margin-bottom:8px"></h1>
-  <p style="color:#888;margin-bottom:2rem" id="win-sub"></p>
-  <button class="pri" onclick="location.reload()" style="padding:12px 32px">Play again</button>
+  <p style="color:var(--text3);margin-bottom:2rem;letter-spacing:0.08em" id="win-sub"></p>
+  <button class="pri" onclick="location.reload()" style="padding:12px 32px">[ NEW MISSION ]</button>
 </div>
 
-</div>
+</div><!-- .wrap -->
 
 <script>
 const ROLES_DEF = {
-  captain:   {name:'Captain',        icon:'&#9875;',  color:'#e6f1fb', tc:'#0c447c', desc:'Calls the heading each turn (N/S/E/W). Approves torpedo fire. Nothing moves without you.'},
-  navigator: {name:'Navigator',      icon:'&#128506;',color:'#e1f5ee', tc:'#085041', desc:'Draws your sub\'s path on a private grid. Your job: make sure the captain never revisits a square.'},
-  engineer:  {name:'Engineer',       icon:'&#9881;',  color:'#faeeda', tc:'#633806', desc:'Solves a system check puzzle every turn. Fail and torpedo charge stalls.'},
-  weapons:   {name:'Weapons officer',icon:'&#127919;',color:'#fcebeb', tc:'#791f1f', desc:'Charges the torpedo tube and fires the shot — but only after the captain approves.'},
-  sonar:     {name:'Sonar operator', icon:'&#128268;',color:'#eeedfe', tc:'#3c3489', desc:'Gets a heading flash every time the enemy captain moves. Track their position on your private grid.'},
-  comms:     {name:'Comms officer',  icon:'&#128225;',color:'#f1efe8', tc:'#2c2c2a', desc:'Relays all status between stations each turn. Nothing passes without going through you.'},
-  damage:    {name:'Damage control', icon:'&#128736;',color:'#fbeaf0', tc:'#72243e', desc:'Runs hull checks and manages repairs after hits. Critical when the sub takes damage.'},
-  decoy:     {name:'Decoy operator', icon:'&#128123;',color:'#e1f5ee', tc:'#085041', desc:'Deploys a single false heading ping to mislead enemy sonar. One use — choose your moment.'}
+  captain:   {name:'Captain',         icon:'&#9875;',  desc:'Calls the heading each turn (N/S/E/W). Approves torpedo fire. Nothing moves without your order.'},
+  navigator: {name:'Navigator',       icon:'&#128506;',desc:'Draws your sub\'s path on a private chart. Confirm every move is legal — no revisiting squares.'},
+  engineer:  {name:'Engineer',        icon:'&#9881;',  desc:'Solves a system check puzzle every turn. Fail and torpedo charge stalls.'},
+  weapons:   {name:'Weapons Officer', icon:'&#127919;',desc:'Charges the torpedo and fires the shot — with captain\'s approval only.'},
+  sonar:     {name:'Sonar Operator',  icon:'&#128268;',desc:'Receives a heading ping every time the enemy captain moves. Track their position on your private grid.'},
+  damage:    {name:'Damage Control',  icon:'&#128736;',desc:'Runs hull checks every turn. Manages repairs after hits.'},
+  decoy:     {name:'Decoy Operator',  icon:'&#128123;',desc:'Deploys one false heading ping per game to mislead enemy sonar. Choose your moment carefully.'}
 };
-const AVATARCOLORS = ['#e6f1fb','#e1f5ee','#faeeda','#eeedfe','#fbeaf0','#fcebeb','#f1efe8'];
-const AVATARTC =     ['#0c447c','#085041','#633806','#3c3489','#72243e','#791f1f','#444'];
 
-let WS=null, G=null, myRole=null, myCrew=null, myName=null, roomCode=null;
-let navMarks={}, sonarMarks={};
-let isHost=false;
+let WS=null,G=null,myRole=null,myRoles=[],myCrew=null,myName=null,roomCode=null;
+let navMarks={},sonarMarks={};
+let sonarAudioCtx=null,sonarInterval=null;
 
-function show(id){document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));document.getElementById(id).classList.add('on');}
+// ── SONAR SOUND ──────────────────────────────────────────────────────────────
+function initAudio(){
+  if(sonarAudioCtx) return;
+  sonarAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  scheduleSonarPings();
+}
 
-function toast(msg,dur=2500){const e=document.getElementById('toast');e.textContent=msg;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),dur);}
+function playPing(){
+  if(!sonarAudioCtx) return;
+  const t=sonarAudioCtx.currentTime;
+  const osc=sonarAudioCtx.createOscillator();
+  const gain=sonarAudioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(sonarAudioCtx.destination);
+  osc.type='sine';
+  osc.frequency.setValueAtTime(880,t);
+  osc.frequency.exponentialRampToValueAtTime(440,t+0.8);
+  gain.gain.setValueAtTime(0,t);
+  gain.gain.linearRampToValueAtTime(0.06,t+0.05);
+  gain.gain.exponentialRampToValueAtTime(0.001,t+1.2);
+  osc.start(t);
+  osc.stop(t+1.3);
+}
 
-function wsUrl(){const p=location.protocol==='https:'?'wss':'ws';const h=location.host;if(!h)throw new Error('Open this from your Railway URL, not inside Claude.');return p+'://'+h;}
+function scheduleSonarPings(){
+  function next(){
+    playPing();
+    const delay=(8+Math.random()*4)*1000;
+    sonarInterval=setTimeout(next,delay);
+  }
+  const delay=(8+Math.random()*4)*1000;
+  sonarInterval=setTimeout(next,delay);
+}
+
+// ── CORE ──────────────────────────────────────────────────────────────────────
+function show(id){
+  document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  initAudio();
+}
+
+function toast(msg,dur=2800){
+  const e=document.getElementById('toast');
+  e.textContent=msg;
+  e.classList.add('show');
+  setTimeout(()=>e.classList.remove('show'),dur);
+}
+
+function wsUrl(){
+  const p=location.protocol==='https:'?'wss':'ws';
+  const h=location.host;
+  if(!h) throw new Error('Open from Railway URL');
+  return p+'://'+h;
+}
 
 function connectWS(cb){
   let url;
-  try { url=wsUrl(); } catch(e) { toast('Open this game from your Railway URL — WebSockets do not work inside Claude.', 5000); return; }
+  try{url=wsUrl();}catch(e){toast('Open this from your Railway URL — not inside Claude.');return;}
   WS=new WebSocket(url);
   WS.onopen=()=>{setConn(true);if(cb)cb();};
   WS.onclose=()=>{setConn(false);setTimeout(()=>connectWS(),3000);};
@@ -262,7 +340,10 @@ function connectWS(cb){
 }
 
 function setConn(ok){
-  document.querySelectorAll('.cdot').forEach(d=>{d.classList.toggle('on',ok);d.classList.toggle('off',!ok);});
+  document.querySelectorAll('.cdot').forEach(d=>{
+    d.classList.toggle('on',ok);
+    d.classList.toggle('off',!ok);
+  });
 }
 
 function send(obj){if(WS&&WS.readyState===1)WS.send(JSON.stringify(obj));}
@@ -276,12 +357,9 @@ function handleMsg(msg){
   if(msg.type==='joined'){
     myName=msg.name;
     show('s-player-lobby');
-    document.getElementById('pl-title').textContent='You\'re in, '+msg.name+'!';
-    document.getElementById('pl-sub').textContent='Waiting for the host to start...';
+    document.getElementById('pl-title').textContent='ABOARD — '+msg.name.toUpperCase();
   }
-  if(msg.type==='lobby_update'){
-    renderLobby(msg.lobby);
-  }
+  if(msg.type==='lobby_update') renderLobby(msg.lobby);
   if(msg.type==='game_started'){
     G=msg.state;
     findMyRole();
@@ -292,7 +370,7 @@ function handleMsg(msg){
     if(document.getElementById('s-station').classList.contains('on')) renderStation();
   }
   if(msg.type==='sonar_ping'){
-    if(myRole==='sonar'&&msg.crew!==myCrew) triggerPing(msg.heading);
+    if(myRoles.includes('sonar')&&msg.crew!==myCrew) triggerPing(msg.heading);
   }
   if(msg.type==='error'){
     const e=document.getElementById('join-err');
@@ -302,29 +380,27 @@ function handleMsg(msg){
 }
 
 function renderLobby(lobby){
-  // host lobby
   const hlEl=document.getElementById('hl-players');
   const hlEmpty=document.getElementById('hl-empty');
   const hlCount=document.getElementById('hl-count');
   if(hlEl){
     hlCount.textContent=lobby.length;
     hlEmpty.style.display=lobby.length?'none':'block';
-    hlEl.innerHTML=lobby.map((p,i)=>`
-      <div class="lobby-player">
-        <div class="avatar" style="background:${AVATARCOLORS[i%7]};color:${AVATARTC[i%7]}">${p.name.charAt(0).toUpperCase()}</div>
-        <span style="font-weight:500">${p.name}</span>
+    hlEl.innerHTML=lobby.map(p=>`
+      <div class="lobby-row">
+        <div class="avatar">${p.name.charAt(0).toUpperCase()}</div>
+        <span style="color:var(--text2);letter-spacing:0.05em">${p.name.toUpperCase()}</span>
       </div>`).join('');
     document.getElementById('hl-start-btn').disabled=lobby.length<2;
   }
-  // player lobby
   const plEl=document.getElementById('pl-players');
   const plCount=document.getElementById('pl-count');
   if(plEl){
     plCount.textContent=lobby.length;
-    plEl.innerHTML=lobby.map((p,i)=>`
-      <div class="lobby-player">
-        <div class="avatar" style="background:${AVATARCOLORS[i%7]};color:${AVATARTC[i%7]}">${p.name.charAt(0).toUpperCase()}</div>
-        <span style="font-weight:500">${p.name}</span>
+    plEl.innerHTML=lobby.map(p=>`
+      <div class="lobby-row">
+        <div class="avatar">${p.name.charAt(0).toUpperCase()}</div>
+        <span style="color:var(--text2);letter-spacing:0.05em">${p.name.toUpperCase()}</span>
       </div>`).join('');
   }
 }
@@ -333,37 +409,44 @@ function findMyRole(){
   if(!G||!myName) return;
   ['A','B'].forEach(crew=>{
     G.players[crew].forEach(p=>{
-      if(p.name===myName){myCrew=crew;myRole=p.role;}
+      if(p.name===myName){
+        myCrew=crew;
+        myRoles=p.roles||[p.role];
+        myRole=myRoles[0];
+      }
     });
   });
 }
 
 function showRoleReveal(){
-  const r=ROLES_DEF[myRole]||{name:'Unknown',icon:'?',desc:'',color:'#f5f5f3',tc:'#444'};
-  const crewName=myCrew==='A'?G.nameA:G.nameB;
-  document.getElementById('rr-icon').innerHTML=r.icon;
-  document.getElementById('rr-crew').textContent='You\'re on '+crewName;
-  document.getElementById('rr-role-name').innerHTML=`Your role: <strong>${r.name}</strong>`;
-  document.getElementById('rr-role-desc').textContent=r.desc;
-
-  // show full crew
+  const crewLabel=myCrew==='A'?G.nameA:G.nameB;
+  document.getElementById('rr-icon').innerHTML=myRoles.map(r=>ROLES_DEF[r]?.icon||'?').join(' ');
+  document.getElementById('rr-crew').textContent='SUB: '+crewLabel.toUpperCase();
+  const roleNames=myRoles.map(r=>ROLES_DEF[r]?.name||r).join(' + ');
+  document.getElementById('rr-role-name').textContent='STATION: '+roleNames.toUpperCase();
+  document.getElementById('rr-role-desc').textContent=myRoles.map(r=>{
+    const rd=ROLES_DEF[r];
+    return rd?(rd.name.toUpperCase()+': '+rd.desc):'';
+  }).join('\n\n');
   const crew=G.players[myCrew];
-  document.getElementById('rr-crew-list').innerHTML=`<p class="ct">Your crew — ${crewName}</p>`+
-    crew.map((p,i)=>{
-      const rd=ROLES_DEF[p.role]||{name:p.role,icon:'?'};
+  document.getElementById('rr-crew-list').innerHTML=`<p class="ct">Crew roster — ${crewLabel.toUpperCase()}</p>`+
+    crew.map(p=>{
+      const roles=p.roles||[p.role];
       const isMe=p.name===myName;
-      return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f5f5f3;font-size:13px">
-        <div class="avatar" style="background:${AVATARCOLORS[i%7]};color:${AVATARTC[i%7]};width:30px;height:30px;font-size:12px">${p.name.charAt(0).toUpperCase()}</div>
-        <span style="font-weight:${isMe?'600':'400'}">${p.name}${isMe?' (you)':''}</span>
-        <span style="margin-left:auto;font-size:12px;color:#888">${rd.icon} ${rd.name}</span>
+      const roleLabel=roles.map(r=>(ROLES_DEF[r]?.name||r)).join(' + ');
+      return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;letter-spacing:0.03em">
+        <div class="avatar" style="font-size:11px">${p.name.charAt(0).toUpperCase()}</div>
+        <span style="color:${isMe?'var(--green)':'var(--text2)'};flex:1">${p.name.toUpperCase()}${isMe?' ◄':''}</span>
+        <span style="color:var(--text3);font-size:10px">${roleLabel.toUpperCase()}</span>
       </div>`;
     }).join('');
   show('s-role-reveal');
 }
 
 function goToStation(){
-  document.getElementById('st-role-badge').textContent=ROLES_DEF[myRole]?.name||myRole;
-  document.getElementById('st-crew-badge').textContent=myCrew==='A'?G.nameA:G.nameB;
+  const roleNames=myRoles.map(r=>ROLES_DEF[r]?.name||r).join('+');
+  document.getElementById('st-role-badge').textContent=roleNames.toUpperCase();
+  document.getElementById('st-crew-badge').textContent=(myCrew==='A'?G.nameA:G.nameB).toUpperCase();
   renderStation();
   show('s-station');
 }
@@ -375,17 +458,14 @@ function hostCreate(){
   const nameB=document.getElementById('h-nameB').value||'Deep Six';
   const size=parseInt(document.getElementById('h-grid').value);
   const hp=parseInt(document.getElementById('h-hp').value);
-  isHost=true;
   connectWS(()=>send({type:'host_create',settings:{nameA,nameB,size,hp}}));
 }
 
 function copyCode(){
-  navigator.clipboard.writeText(roomCode).then(()=>toast('Room code copied!'));
+  navigator.clipboard.writeText(roomCode).then(()=>toast('Room code copied to clipboard'));
 }
 
-function startGame(){
-  send({type:'start_game',room:roomCode});
-}
+function startGame(){send({type:'start_game',room:roomCode});}
 
 function joinGame(){
   const code=document.getElementById('join-code').value.trim().toUpperCase();
@@ -394,248 +474,216 @@ function joinGame(){
   err.style.display='none';
   if(!code||code.length<3){err.textContent='Enter the room code.';err.style.display='block';return;}
   if(!name){err.textContent='Enter your name.';err.style.display='block';return;}
-  myName=name;
-  roomCode=code;
+  myName=name;roomCode=code;
   connectWS(()=>send({type:'join',room:code,name}));
 }
 
 function crewName(cr){return cr==='A'?G.nameA:G.nameB;}
-
-function addLog(msg,imp=false){
-  if(!G)return;
-  G.log.unshift((imp?'*** ':'')+msg+(imp?' ***':''));
-  if(G.log.length>60)G.log.pop();
-}
+function addLog(msg,imp=false){if(!G)return;G.log.unshift((imp?'*** ':'')+msg+(imp?' ***':''));if(G.log.length>60)G.log.pop();}
 
 function hpDots(n,max){
   let s='';
-  for(let i=0;i<max;i++) s+=`<span class="hp-pip" style="background:${i<n?'#1d9e75':'#e0e0dc'}"></span>`;
+  for(let i=0;i<max;i++) s+=`<span class="hp-pip" style="background:${i<n?'var(--green3)':'var(--border2)'};${i<n?'box-shadow:0 0 4px rgba(0,255,136,0.4)':''}"></span>`;
   return s;
 }
 
 function statusCard(){
   const isMyTurn=myCrew===G.activeCrew;
-  const phases={move:'Movement phase',fire:'Fire decision'};
+  const phases={move:'MOVEMENT',fire:'FIRE DECISION'};
   return `<div class="sbar">
     <div>
-      <span class="badge ${isMyTurn?'b-teal':'b-amber'}" style="margin-right:5px">${isMyTurn?'Your turn':'Opponent\'s turn'}</span>
-      <span class="badge b-blue">${phases[G.phase]||G.phase}</span>
+      <span class="badge ${isMyTurn?'b-green':'b-amber'}" style="margin-right:6px">${isMyTurn?'YOUR TURN':'STANDBY'}</span>
+      <span class="badge b-dim">${phases[G.phase]||G.phase}</span>
     </div>
-    <span style="font-size:12px;color:#888">Turn ${G.turn}</span>
+    <span style="font-size:11px;color:var(--text3);letter-spacing:0.1em">TURN ${G.turn}</span>
   </div>`;
 }
 
 function miniLog(){
-  return `<div class="card" style="background:#f8f8f6"><p class="ct">Game log</p>
-    ${G.log.slice(0,7).map(l=>`<div class="log-line ${l.startsWith('***')?'imp':''}">${l}</div>`).join('')}
+  return `<div class="card"><p class="ct">System log</p>
+    ${G.log.slice(0,7).map(l=>`<div class="log-line ${l.startsWith('***')?'imp':''}">&gt; ${l}</div>`).join('')}
   </div>`;
 }
 
 function renderStation(){
   document.getElementById('st-turn').textContent=G.turn;
   const fns={captain:renderCaptain,navigator:renderNavigator,engineer:renderEngineer,
-    weapons:renderWeapons,sonar:renderSonar,comms:renderComms,damage:renderDamage,decoy:renderDecoy};
-  document.getElementById('station-body').innerHTML=(fns[myRole]||function(){return '<p>Unknown role</p>';})();
+    weapons:renderWeapons,sonar:renderSonar,damage:renderDamage,decoy:renderDecoy};
+  const panels=myRoles.map((role,i)=>{
+    const fn=fns[role];
+    if(!fn) return '';
+    const html=fn(true);
+    return i===0?html:`<div class="role-section">
+      <span class="role-label">${ROLES_DEF[role]?.icon||''} ${(ROLES_DEF[role]?.name||role).toUpperCase()} STATION</span>
+      ${html}</div>`;
+  }).join('');
+  document.getElementById('station-body').innerHTML=panels+miniLog();
   bindGrids();
 }
 
-function renderCaptain(){
+function renderCaptain(sup){
   const cr=G[myCrew];
   const isMyTurn=myCrew===G.activeCrew;
   const ready=G.rolesReady[myCrew]['captain'];
   return statusCard()+`
   <div class="card">
-    <p class="ct">Your submarine</p>
-    <div style="display:flex;gap:16px;font-size:13px;flex-wrap:wrap">
-      <span>Hull: ${hpDots(cr.hp,G.maxHp)}</span>
-      <span>Torpedo: <strong>${Math.round(cr.charge)}%</strong></span>
-      <span>Sonar: ${cr.sonarFix?'<span class="badge b-teal">Fix confirmed</span>':'<span class="badge b-red">No fix</span>'}</span>
+    <p class="ct">Sub status</p>
+    <div style="display:flex;gap:16px;font-size:12px;flex-wrap:wrap;color:var(--text2)">
+      <span>HULL: ${hpDots(cr.hp,G.maxHp)}</span>
+      <span>TORPEDO: <strong style="color:var(--green)">${Math.round(cr.charge)}%</strong></span>
+      <span>SONAR: ${cr.sonarFix?'<span class="badge b-green">FIX</span>':'<span class="badge b-red">NO FIX</span>'}</span>
     </div>
-    ${cr.fireApproved?'<p style="margin-top:8px;font-size:13px;color:#a32d2d;font-weight:600">&#128680; Fire approved — weapons officer targeting</p>':''}
+    ${cr.fireApproved?'<p style="margin-top:8px;font-size:12px;color:var(--red);font-weight:700;letter-spacing:0.05em">&#128680; FIRE APPROVED — WEAPONS TARGETING</p>':''}
   </div>
   <div class="card">
-    <p class="ct">Call heading</p>
+    <p class="ct">Navigation order</p>
     ${isMyTurn&&G.phase==='move'&&!ready?`
-    <p style="font-size:12px;color:#888;margin-bottom:12px">Say your heading out loud to your crew first — enemy sonar is listening.</p>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:12px;letter-spacing:0.05em">Announce heading to crew aloud — enemy sonar is listening.</p>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-      <button onclick="captainMove('N')" style="padding:14px;font-size:18px">&#8593; N</button>
-      <button onclick="captainMove('S')" style="padding:14px;font-size:18px">&#8595; S</button>
-      <button onclick="captainMove('W')" style="padding:14px;font-size:18px">&#8592; W</button>
-      <button onclick="captainMove('E')" style="padding:14px;font-size:18px">&#8594; E</button>
+      <button onclick="captainMove('N')" style="padding:14px;font-size:16px">&#8593; N</button>
+      <button onclick="captainMove('S')" style="padding:14px;font-size:16px">&#8595; S</button>
+      <button onclick="captainMove('W')" style="padding:14px;font-size:16px">&#8592; W</button>
+      <button onclick="captainMove('E')" style="padding:14px;font-size:16px">&#8594; E</button>
     </div>`:
-    ready?`<p style="color:#1d9e75;font-weight:600">&#10003; Heading called. Waiting for crew.</p>`:
-    `<p style="color:#888">Waiting for your turn...</p>`}
+    ready?`<p style="color:var(--green);font-size:12px;letter-spacing:0.05em">&#10003; HEADING CALLED. AWAITING CREW.</p>`:
+    `<p style="color:var(--text3);font-size:12px;letter-spacing:0.05em">STANDBY — NOT YOUR TURN</p>`}
   </div>
   ${G.phase==='fire'&&isMyTurn?captainFirePanel():''}
-  ${miniLog()}`;
+  ${sup?'':miniLog()}`;
 }
 
 function captainFirePanel(){
   const cr=G[myCrew];
   const canApprove=cr.charge>=100&&cr.sonarFix;
-  return `<div class="card" style="${canApprove?'border-color:#5dcaa5':''}">
+  return `<div class="card" style="${canApprove?'border-color:var(--green3)':''}">
     <p class="ct">Fire control</p>
     ${canApprove&&!cr.fireApproved?`
-      <p style="font-size:13px;margin-bottom:12px">Torpedo ready. Sonar fix confirmed. Approve the shot?</p>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px;letter-spacing:0.03em">Torpedo charged. Sonar fix confirmed. Authorise launch?</p>
       <div style="display:flex;gap:8px">
-        <button class="success" onclick="captainApprove()">Approve fire</button>
-        <button class="pri" onclick="endTurn()">End turn — don't fire</button>
+        <button class="approve" onclick="captainApprove()">[ APPROVE FIRE ]</button>
+        <button onclick="endTurn()">[ END TURN ]</button>
       </div>`:
-    cr.fireApproved?`<p style="color:#1d9e75;font-weight:600">&#10003; Fire approved. Weapons officer is targeting.</p>
-      <button onclick="endTurn()" style="margin-top:8px">Abort — end turn</button>`:
-    `<p style="font-size:13px;color:#888">Need 100% charge + sonar fix.<br>Charge: ${Math.round(cr.charge)}% — Sonar: ${cr.sonarFix?'confirmed':'not confirmed'}</p>
-      <button class="pri" onclick="endTurn()" style="margin-top:10px">End turn</button>`}
+    cr.fireApproved?`<p style="color:var(--green);font-size:12px;font-weight:700;letter-spacing:0.05em">&#10003; FIRE AUTHORISED. WEAPONS TARGETING.</p>
+      <button onclick="endTurn()" style="margin-top:8px">[ ABORT — END TURN ]</button>`:
+    `<p style="font-size:12px;color:var(--text3);letter-spacing:0.03em">Requires 100% charge + sonar fix.<br>Charge: ${Math.round(cr.charge)}% — Sonar: ${cr.sonarFix?'confirmed':'unconfirmed'}</p>
+      <button onclick="endTurn()" style="margin-top:10px">[ END TURN ]</button>`}
   </div>`;
 }
 
-function renderNavigator(){
+function renderNavigator(sup){
   const isMyTurn=myCrew===G.activeCrew;
   const ready=G.rolesReady[myCrew]['navigator'];
-  return statusCard()+`
-  <div class="card">
+  return `<div class="card">
     <p class="ct">Navigation chart</p>
-    <p style="font-size:12px;color:#888;margin-bottom:10px">Click to mark your path, click again to clear. Confirm each move is legal — no revisiting squares.</p>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:10px;letter-spacing:0.03em">Mark your sub's path. Click to mark, click again to clear. Confirm each move is legal — no revisiting squares.</p>
     <div id="nav-grid-wrap" style="overflow-x:auto;margin-bottom:10px"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button onclick="navClear()">Clear chart</button>
-      ${isMyTurn&&G.phase==='move'&&!ready?`<button class="pri" onclick="navConfirm()">Confirm — move is legal</button>`:''}
-      ${ready?`<span style="color:#1d9e75;font-weight:600;padding:8px 0">&#10003; Move confirmed</span>`:''}
+      <button onclick="navClear()">[ CLEAR ]</button>
+      ${isMyTurn&&G.phase==='move'&&!ready?`<button class="pri" onclick="navConfirm()">[ CONFIRM — LEGAL ]</button>`:''}
+      ${ready?`<span style="color:var(--green);font-size:12px;padding:8px 0;letter-spacing:0.05em">&#10003; CONFIRMED</span>`:''}
     </div>
   </div>
-  ${miniLog()}`;
+  ${sup?'':miniLog()}`;
 }
 
-function renderEngineer(){
+function renderEngineer(sup){
   const isMyTurn=myCrew===G.activeCrew;
   const ready=G.rolesReady[myCrew]['engineer'];
-  if(isMyTurn&&G.phase==='move'&&!ready&&!G.engineQ) genEngineQ();
+  if(isMyTurn&&G.phase==='move'&&!ready&&!G.engineQ&&!sup) genEngineQ();
   const q=G.engineQ;
-  return statusCard()+`
-  <div class="card">
+  return `<div class="card">
     <p class="ct">System check</p>
     ${isMyTurn&&G.phase==='move'&&!ready&&q?`
-    <p style="font-size:14px;margin-bottom:6px">Which pair adds up to <span style="font-size:22px;font-weight:700">${q.target}</span>?</p>
-    <p style="font-size:12px;color:#888;margin-bottom:14px">Get it wrong and torpedo charge stalls this turn.</p>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:6px;letter-spacing:0.05em">PAIR THAT SUMS TO: <span style="font-size:24px;font-weight:700;color:var(--green);text-shadow:0 0 10px rgba(0,255,136,0.4)">${q.target}</span></p>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:14px;letter-spacing:0.03em">Incorrect answer stalls torpedo charge this turn.</p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" id="eng-opts">
       ${q.opts.map((pair,i)=>`<div class="eng-opt" id="eopt-${i}" onclick="checkEng(${i})">${pair[0]} + ${pair[1]}</div>`).join('')}
     </div>`:
-    ready?`<p style="color:#1d9e75;font-weight:600">&#10003; Systems nominal. Torpedo charging.</p>`:
-    `<p style="color:#888">Standby — puzzle appears on your crew's turn.</p>`}
+    ready?`<p style="color:var(--green);font-size:12px;letter-spacing:0.05em">&#10003; SYSTEMS NOMINAL</p>`:
+    `<p style="color:var(--text3);font-size:12px;letter-spacing:0.05em">STANDBY</p>`}
   </div>
-  ${miniLog()}`;
+  ${sup?'':miniLog()}`;
 }
 
-function renderWeapons(){
+function renderWeapons(sup){
   const cr=G[myCrew];
   const isMyTurn=myCrew===G.activeCrew;
   const wReady=G.rolesReady[myCrew]['weapons'];
   const canFire=cr.charge>=100&&cr.sonarFix&&cr.fireApproved;
-  return statusCard()+`
-  <div class="card">
+  return `<div class="card">
     <p class="ct">Torpedo tube</p>
     <div class="prog"><div class="prog-fill" style="width:${Math.round(cr.charge)}%"></div></div>
-    <p style="font-size:12px;color:#888;margin-bottom:12px">Charge: <strong>${Math.round(cr.charge)}%</strong>
-      ${cr.charge>=100?'<span class="badge b-teal" style="margin-left:6px">Ready</span>':''}</p>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:12px;letter-spacing:0.05em">CHARGE: <strong style="color:var(--green)">${Math.round(cr.charge)}%</strong>
+      ${cr.charge>=100?'<span class="badge b-green" style="margin-left:6px">ARMED</span>':''}</p>
     ${isMyTurn&&G.phase==='move'&&!wReady?
-      `<button class="pri" onclick="chargeWeapons()">Add charge (+25%)</button>`:
-    wReady?`<p style="color:#1d9e75;font-weight:600">&#10003; Charged this turn.</p>`:
-    `<p style="color:#888">Standby...</p>`}
+      `<button class="pri" onclick="chargeWeapons()">[ CHARGE +25% ]</button>`:
+    wReady?`<p style="color:var(--green);font-size:12px;letter-spacing:0.05em">&#10003; CHARGED THIS TURN</p>`:
+    `<p style="color:var(--text3);font-size:12px;letter-spacing:0.05em">STANDBY</p>`}
   </div>
-  <div class="card" style="${canFire?'border-color:#5dcaa5':''}">
+  <div class="card" style="${canFire?'border-color:var(--red)':''}">
     <p class="ct">Fire control</p>
-    <p style="font-size:13px;margin-bottom:4px">Captain approval: ${cr.fireApproved?'<span class="badge b-teal">Approved</span>':'<span class="badge b-red">Waiting</span>'}</p>
-    <p style="font-size:13px;margin-bottom:12px">Sonar fix: ${cr.sonarFix?'<span class="badge b-teal">Confirmed</span>':'<span class="badge b-red">No fix</span>'}</p>
-    ${canFire?`<p style="font-size:13px;font-weight:600;margin-bottom:10px">Select target — click a cell to fire:</p>
+    <p style="font-size:12px;margin-bottom:4px;color:var(--text2)">CAPTAIN: ${cr.fireApproved?'<span class="badge b-green">APPROVED</span>':'<span class="badge b-red">AWAITING</span>'}</p>
+    <p style="font-size:12px;margin-bottom:12px;color:var(--text2)">SONAR: ${cr.sonarFix?'<span class="badge b-green">FIX CONFIRMED</span>':'<span class="badge b-red">NO FIX</span>'}</p>
+    ${canFire?`<p style="font-size:12px;font-weight:700;margin-bottom:10px;color:var(--red);letter-spacing:0.05em">&#128680; SELECT TARGET — CLICK TO FIRE</p>
       <div id="fire-grid-wrap" style="overflow-x:auto;margin-bottom:8px"></div>`:
-    `<p style="font-size:12px;color:#888">Waiting for 100% charge + sonar fix + captain approval.</p>`}
+    `<p style="font-size:11px;color:var(--text3);letter-spacing:0.03em">Awaiting: 100% charge + sonar fix + captain approval.</p>`}
   </div>
-  ${miniLog()}`;
+  ${sup?'':miniLog()}`;
 }
 
-function renderSonar(){
+function renderSonar(sup){
   const cr=G[myCrew];
   const ready=G.rolesReady[myCrew]['sonar'];
-  return statusCard()+`
-  <div class="card">
+  return `<div class="card">
     <p class="ct">Sonar station</p>
-    <p style="font-size:12px;color:#888;margin-bottom:10px">When the enemy captain moves, a heading ping flashes on your screen. Use the grid to track their position.</p>
-    <p style="font-size:13px;margin-bottom:12px">Fix status: ${cr.sonarFix?'<span class="badge b-teal">Confirmed</span>':'<span class="badge b-red">Not confirmed</span>'}</p>
-    ${!ready?`<button class="pri" onclick="confirmSonar()">Confirm sonar fix — I have their position</button>`:
-    `<p style="color:#1d9e75;font-weight:600">&#10003; Fix confirmed.</p>`}
+    <p style="font-size:11px;color:var(--text3);margin-bottom:10px;letter-spacing:0.03em">A heading ping flashes when the enemy captain moves. Track their position on your private grid below.</p>
+    <p style="font-size:12px;margin-bottom:12px;color:var(--text2)">FIX STATUS: ${cr.sonarFix?'<span class="badge b-green">CONFIRMED</span>':'<span class="badge b-red">UNCONFIRMED</span>'}</p>
+    ${!ready?`<button class="pri" onclick="confirmSonar()">[ CONFIRM FIX — HAVE POSITION ]</button>`:
+    `<p style="color:var(--green);font-size:12px;letter-spacing:0.05em">&#10003; FIX CONFIRMED</p>`}
   </div>
   <div class="card">
-    <p class="ct">Tracking grid (private)</p>
-    <p style="font-size:12px;color:#888;margin-bottom:8px">Your personal notepad. Not shared with anyone.</p>
+    <p class="ct">Tracking grid — private</p>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:8px;letter-spacing:0.03em">Your personal chart. Not shared with anyone.</p>
     <div id="sonar-grid-wrap" style="overflow-x:auto;margin-bottom:8px"></div>
-    <button onclick="sonarClear()" style="font-size:12px">Clear grid</button>
+    <button onclick="sonarClear()" style="font-size:11px">[ CLEAR GRID ]</button>
   </div>
-  ${miniLog()}`;
+  ${sup?'':miniLog()}`;
 }
 
-function renderComms(){
-  const cr=G[myCrew];
-  const ready=G.rolesReady[myCrew]['comms'];
-  return statusCard()+`
-  <div class="card">
-    <p class="ct">Comms station</p>
-    <p style="font-size:12px;color:#888;margin-bottom:12px">All information passes through you. No one talks directly to each other.</p>
-    <div style="background:#f8f8f6;border-radius:8px;padding:12px;font-size:13px;line-height:2.1;margin-bottom:12px">
-      Torpedo: <strong>${Math.round(cr.charge)}%</strong><br>
-      Hull: ${hpDots(cr.hp,G.maxHp)}<br>
-      Sonar fix: <strong>${cr.sonarFix?'Confirmed':'Not yet'}</strong><br>
-      Fire approved: <strong>${cr.fireApproved?'Yes':'No'}</strong>
-    </div>
-    ${!ready?`<button class="pri" onclick="readyRole('comms')">Status relayed to all stations</button>`:
-    `<p style="color:#1d9e75;font-weight:600">&#10003; Relayed.</p>`}
-  </div>
-  ${miniLog()}`;
-}
-
-function renderDamage(){
+function renderDamage(sup){
   const cr=G[myCrew];
   const ready=G.rolesReady[myCrew]['damage'];
-  return statusCard()+`
-  <div class="card">
+  return `<div class="card">
     <p class="ct">Damage control</p>
-    <p style="font-size:13px;margin-bottom:6px">Hull: ${hpDots(cr.hp,G.maxHp)} (${cr.hp}/${G.maxHp})</p>
-    <p style="font-size:12px;color:#888;margin-bottom:12px">Run a hull check every turn. After a hit, report damage to Comms immediately.</p>
-    ${!ready?`<button class="pri" onclick="readyRole('damage')">Hull check complete</button>`:
-    `<p style="color:#1d9e75;font-weight:600">&#10003; Hull checked.</p>`}
+    <p style="font-size:12px;margin-bottom:6px;color:var(--text2)">HULL: ${hpDots(cr.hp,G.maxHp)} (${cr.hp}/${G.maxHp})</p>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:12px;letter-spacing:0.03em">Run hull check every turn. After a hit, report damage immediately.</p>
+    ${!ready?`<button class="pri" onclick="readyRole('damage')">[ HULL CHECK COMPLETE ]</button>`:
+    `<p style="color:var(--green);font-size:12px;letter-spacing:0.05em">&#10003; HULL CHECKED</p>`}
   </div>
-  ${miniLog()}`;
+  ${sup?'':miniLog()}`;
 }
 
-function renderDecoy(){
+function renderDecoy(sup){
   const cr=G[myCrew];
   const ready=G.rolesReady[myCrew]['decoy'];
-  return statusCard()+`
-  <div class="card">
-    <p class="ct">Decoy operator</p>
-    <p style="font-size:12px;color:#888;margin-bottom:12px">Send a false heading ping to mislead enemy sonar. One use per game.</p>
-    ${!cr.decoyUsed?`<button class="danger" onclick="deployDecoy()">&#128123; Deploy decoy (1 remaining)</button>`:
-    `<span class="badge b-gray">Decoy used</span>`}
-    <div style="margin-top:10px">${!ready?`<button onclick="readyRole('decoy')">Station nominal</button>`:
-    `<p style="color:#1d9e75;font-weight:600">&#10003; Ready.</p>`}</div>
+  return `<div class="card">
+    <p class="ct">Decoy system</p>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:12px;letter-spacing:0.03em">Broadcast a false heading to mislead enemy sonar. One use per mission.</p>
+    ${!cr.decoyUsed?`<button class="fire" onclick="deployDecoy()">[ DEPLOY DECOY — 1 REMAINING ]</button>`:
+    `<span class="badge b-dim">DECOY EXPENDED</span>`}
+    <div style="margin-top:10px">${!ready?`<button onclick="readyRole('decoy')" style="margin-top:4px">[ STATION NOMINAL ]</button>`:
+    `<p style="color:var(--green);font-size:12px;letter-spacing:0.05em;margin-top:4px">&#10003; READY</p>`}</div>
   </div>
-  ${miniLog()}`;
+  ${sup?'':miniLog()}`;
 }
 
 function bindGrids(){
-  if(myRole==='navigator'){
-    const el=document.getElementById('nav-grid-wrap');
-    if(el) buildClickGrid(el,navMarks);
-  }
-  if(myRole==='sonar'){
-    const el=document.getElementById('sonar-grid-wrap');
-    if(el) buildClickGrid(el,sonarMarks);
-  }
-  if(myRole==='weapons'&&G[myCrew].charge>=100&&G[myCrew].sonarFix&&G[myCrew].fireApproved){
-    const el=document.getElementById('fire-grid-wrap');
-    if(el) buildFireGrid(el);
-  }
+  if(myRoles.includes('navigator')){const el=document.getElementById('nav-grid-wrap');if(el)buildClickGrid(el,navMarks);}
+  if(myRoles.includes('sonar')){const el=document.getElementById('sonar-grid-wrap');if(el)buildClickGrid(el,sonarMarks);}
+  if(myRoles.includes('weapons')&&G[myCrew].charge>=100&&G[myCrew].sonarFix&&G[myCrew].fireApproved){const el=document.getElementById('fire-grid-wrap');if(el)buildFireGrid(el);}
 }
 
-function cellSize(){return G.size<=8?34:G.size<=10?30:26;}
+function cellSize(){return G.size<=8?32:G.size<=10?28:24;}
 
 function buildClickGrid(wrap,marks){
   const sz=cellSize()+'px';
@@ -659,7 +707,6 @@ function buildClickGrid(wrap,marks){
 
 function buildFireGrid(wrap){
   const cr=G[myCrew];
-  const opp=G[myCrew==='A'?'B':'A'];
   const sz=cellSize()+'px';
   wrap.innerHTML='';
   const con=document.createElement('div');
@@ -671,7 +718,7 @@ function buildFireGrid(wrap){
       cell.style.width=cell.style.height=sz;
       const state=cr.targetHits[r][c];
       if(state===1){cell.className='cell hit';cell.textContent='X';}
-      else if(state===2){cell.className='cell miss';cell.textContent='o';}
+      else if(state===2){cell.className='cell miss';cell.textContent='·';}
       else{cell.className='cell target';cell.onclick=()=>fireTorpedo(r,c);}
       row.appendChild(cell);
     }
@@ -686,11 +733,23 @@ function triggerPing(dir){
   const ad=document.getElementById('ping-arrow');
   const pt=document.getElementById('ping-text');
   ad.innerHTML=arrows[dir]||dir;
-  pt.textContent='Enemy heading: '+dir;
-  ad.style.animation='none'; pt.style.animation='none';
+  pt.textContent='ENEMY HEADING: '+dir;
+  ad.style.animation='none';pt.style.animation='none';
   ov.classList.add('show');
   setTimeout(()=>{ad.style.animation='pf 2.5s forwards';pt.style.animation='pf 2.5s forwards';},30);
   setTimeout(()=>ov.classList.remove('show'),2800);
+  // also play a sharper alert ping on heading flash
+  if(sonarAudioCtx){
+    const t=sonarAudioCtx.currentTime;
+    const osc=sonarAudioCtx.createOscillator();
+    const gain=sonarAudioCtx.createGain();
+    osc.connect(gain);gain.connect(sonarAudioCtx.destination);
+    osc.type='sine';osc.frequency.setValueAtTime(1200,t);
+    osc.frequency.exponentialRampToValueAtTime(600,t+0.5);
+    gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(0.12,t+0.03);
+    gain.gain.exponentialRampToValueAtTime(0.001,t+0.8);
+    osc.start(t);osc.stop(t+0.9);
+  }
 }
 
 function genEngineQ(){
@@ -719,18 +778,16 @@ function captainMove(dir){
   const dirs={N:{r:-1,c:0},S:{r:1,c:0},W:{r:0,c:-1},E:{r:0,c:1}};
   const d=dirs[dir];
   const cr=G[myCrew];
-  const nr=cr.pos.r+d.r, nc=cr.pos.c+d.c;
-  if(nr<0||nr>=G.size||nc<0||nc>=G.size){toast('Out of bounds! Choose another heading.');return;}
-  if(cr.trail.some(t=>t.r===nr&&t.c===nc)){toast('Cannot revisit a square!');return;}
+  const nr=cr.pos.r+d.r,nc=cr.pos.c+d.c;
+  if(nr<0||nr>=G.size||nc<0||nc>=G.size){toast('OUT OF BOUNDS — choose another heading');return;}
+  if(cr.trail.some(t=>t.r===nr&&t.c===nc)){toast('CANNOT REVISIT — choose another heading');return;}
   cr.pos={r:nr,c:nc};
   cr.trail.push({r:nr,c:nc});
-  G.lastHeading=dir; G.lastHeadingCrew=myCrew;
+  G.lastHeading=dir;G.lastHeadingCrew=myCrew;
   G.rolesReady[myCrew]['captain']=true;
   addLog(crewName(myCrew)+' heading: '+dir);
   send({type:'sonar_ping',room:roomCode,heading:dir,crew:myCrew});
-  checkAllReady();
-  pushState();
-  renderStation();
+  checkAllReady();pushState();renderStation();
 }
 
 function navClear(){navMarks={};bindGrids();}
@@ -746,16 +803,13 @@ function confirmSonar(){
   G[myCrew].sonarFix=true;
   G.rolesReady[myCrew]['sonar']=true;
   addLog(crewName(myCrew)+' sonar fix confirmed');
-  checkAllReady();
-  pushState();
-  renderStation();
+  checkAllReady();pushState();renderStation();
 }
 
 function captainApprove(){
   G[myCrew].fireApproved=true;
-  addLog(crewName(myCrew)+' captain approved fire');
-  pushState();
-  renderStation();
+  addLog(crewName(myCrew)+' captain authorised fire');
+  pushState();renderStation();
 }
 
 function deployDecoy(){
@@ -764,23 +818,20 @@ function deployDecoy(){
   const opp=myCrew==='A'?'B':'A';
   G[opp].sonarFix=false;
   const fakeDir=['N','S','E','W'].filter(x=>x!==G.lastHeading)[Math.floor(Math.random()*3)];
-  addLog(crewName(myCrew)+' deployed DECOY — enemy sonar wiped');
+  addLog(crewName(myCrew)+' DECOY deployed — enemy sonar reset');
   send({type:'sonar_ping',room:roomCode,heading:fakeDir,crew:myCrew});
-  pushState();
-  renderStation();
+  pushState();renderStation();
 }
 
 function readyRole(rid){
   G.rolesReady[myCrew][rid]=true;
-  addLog(crewName(myCrew)+' — '+((ROLES_DEF[rid]||{}).name||rid)+' ready');
-  checkAllReady();
-  pushState();
-  renderStation();
+  addLog(crewName(myCrew)+' — '+(ROLES_DEF[rid]?.name||rid)+' ready');
+  checkAllReady();pushState();renderStation();
 }
 
 function checkAllReady(){
-  const roles=G.players[myCrew].map(p=>p.role);
-  const allDone=roles.every(rid=>G.rolesReady[myCrew][rid]);
+  const allRoles=[...new Set(G.players[myCrew].flatMap(p=>p.roles||[p.role]))];
+  const allDone=allRoles.every(rid=>G.rolesReady[myCrew][rid]);
   if(allDone&&G.phase==='move'){
     G.phase='fire';
     addLog(crewName(myCrew)+' all stations ready — fire decision');
@@ -791,7 +842,7 @@ function fireTorpedo(r,c){
   const cr=G[myCrew];
   const opp=myCrew==='A'?'B':'A';
   const oppCr=G[opp];
-  cr.charge=0; cr.sonarFix=false; cr.fireApproved=false;
+  cr.charge=0;cr.sonarFix=false;cr.fireApproved=false;
   const hit=oppCr.pos.r===r&&oppCr.pos.c===c;
   cr.targetHits[r][c]=hit?1:2;
   if(hit){
@@ -800,12 +851,12 @@ function fireTorpedo(r,c){
     if(oppCr.hp<=0){
       addLog(crewName(myCrew)+' WINS!',true);
       pushState();
-      document.getElementById('win-title').textContent=crewName(myCrew)+' wins!';
-      document.getElementById('win-sub').textContent=crewName(opp)+' has been sunk on turn '+G.turn+'.';
+      document.getElementById('win-title').textContent=crewName(myCrew).toUpperCase()+' WINS';
+      document.getElementById('win-sub').textContent=crewName(opp).toUpperCase()+' SUNK — TURN '+G.turn;
       show('s-win');return;
     }
   } else {
-    addLog('Torpedo missed at ('+(r+1)+','+(c+1)+') by '+crewName(myCrew));
+    addLog('TORPEDO MISS at ('+(r+1)+','+(c+1)+') by '+crewName(myCrew));
   }
   endTurn();
 }
@@ -817,12 +868,15 @@ function endTurn(){
   G.activeCrew=myCrew==='A'?'B':'A';
   if(myCrew==='B')G.turn++;
   G.engineQ=null;
-  addLog('--- Turn '+G.turn+' — '+crewName(G.activeCrew)+'\'s move ---');
-  pushState();
-  renderStation();
+  addLog('--- TURN '+G.turn+' — '+crewName(G.activeCrew).toUpperCase()+' ---');
+  pushState();renderStation();
 }
 
 setInterval(()=>{if(WS&&WS.readyState===1)send({type:'ping'});},25000);
+
+// start audio on first interaction
+document.addEventListener('click',initAudio,{once:true});
+document.addEventListener('keydown',initAudio,{once:true});
 </script>
 </body>
 </html>
