@@ -186,6 +186,7 @@ wss.on('connection', (ws) => {
       state[firingCrew].sonarCoords = null;
       state[firingCrew].weaponsArmed = false;
       state[firingCrew].fireApproved = false;
+      state[firingCrew].pendingFireCell = null;
       state[firingCrew].weapChargeAttempted = false;
 
       if (damage > 0) {

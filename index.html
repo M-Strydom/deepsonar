@@ -447,13 +447,17 @@ function handleMsg(msg){
     setTimeout(function(){
       ov.classList.remove('show');
       G=msg.state;
+      // Ensure pendingFireCell is cleared on firing crew (belt-and-suspenders)
+      if(G[msg.firingCrew]){
+        G[msg.firingCrew].pendingFireCell=null;
+        G[msg.firingCrew].fireApproved=false;
+      }
       // Add hit log to the relevant crew's log
       if(msg.result!=='miss'&&msg.result!==''){
         var dmg=msg.result==='direct'?2:1;
         var hitCrew=msg.firingCrew==='A'?'B':'A';
         var hitName=hitCrew==='A'?msg.state.nameA:msg.state.nameB;
         var fireName=msg.firingCrew==='A'?msg.state.nameA:msg.state.nameB;
-        // Log on both subs
         addLog('TORPEDO '+msg.result.toUpperCase()+': '+fireName+' hit '+hitName+' — -'+dmg+' HULL',true);
       }
       if(onStation())renderStation();
