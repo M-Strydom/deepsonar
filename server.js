@@ -118,23 +118,39 @@ wss.on('connection', (ws) => {
       // role assignment respecting host preference
       function assignWithPref(crew) {
         if (!crew.length) return [];
-        const supporting = ['engineer','sonar','weapons','firefighter','comms'].sort(() => Math.random() - 0.5);
         const sc = [...crew].sort(() => Math.random() - 0.5);
         const hostPref = s.hostJoins && s.hostName && s.hostRole !== 'random' ? s.hostRole : null;
         const hostIdx = hostPref ? sc.indexOf(s.hostName) : -1;
-        // move host to captain slot if they want captain
         if (hostIdx > 0 && hostPref === 'captain') [sc[0], sc[hostIdx]] = [sc[hostIdx], sc[0]];
-        const stacks = sc.map(() => []);
-        stacks[0].push('captain');
-        // if host wants a specific supporting role, assign it directly
-        const suppToAssign = [...supporting];
-        if (hostIdx >= 0 && hostPref && hostPref !== 'captain' && hostPref !== 'random') {
-          const realIdx = sc.indexOf(s.hostName);
-          if (realIdx > 0) { stacks[realIdx].push(hostPref); suppToAssign.splice(suppToAssign.indexOf(hostPref), 1); }
+
+        // Build complete role list: captain first, then 5 supporting roles shuffled
+        const supporting = ['engineer','sonar','weapons','firefighter','comms'].sort(() => Math.random() - 0.5);
+        const allRoles = ['captain', ...supporting]; // always exactly 6 roles
+
+        // Handle host role preference
+        if (hostIdx >= 0 && hostPref && hostPref !== 'random') {
+          const hi = allRoles.indexOf(hostPref);
+          if (hi > -1) {
+            // swap so host's preferred role lands on their index
+            const realIdx = sc.indexOf(s.hostName);
+            // find which role is currently at realIdx position and swap
+            const roleAtSlot = allRoles[realIdx] || allRoles[hi];
+            allRoles[hi] = roleAtSlot;
+            allRoles[realIdx] = hostPref;
+          }
         }
-        suppToAssign.forEach((role, i) => { stacks[(i + 1) % sc.length].push(role); });
+
+        // Distribute: if more players than roles, extras shadow
+        // If fewer players than roles, stack extras onto players round-robin starting slot 0
+        const stacks = sc.map(() => []);
+        allRoles.forEach((role, i) => {
+          stacks[i % sc.length].push(role);
+        });
+
+        // Sort each stack by ROLE_ORDER and ensure no empty stacks
         return sc.map((name, i) => ({
-          name, roles: stacks[i].sort((a,b) => ROLE_ORDER.indexOf(a) - ROLE_ORDER.indexOf(b)),
+          name,
+          roles: stacks[i].sort((a,b) => ROLE_ORDER.indexOf(a) - ROLE_ORDER.indexOf(b)),
           isShadow: stacks[i].length === 0
         }));
       }
