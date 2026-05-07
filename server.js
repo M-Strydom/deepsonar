@@ -71,7 +71,7 @@ function makeCrew(hp, pos) {
     decoyUsed: false, goSilent: false,
     commsCharge: 0, commsOption: null, commsActive: null,
     damage: null, maintenancePuzzle: null,
-    surfacing: false, surfaceChallenges: {},
+    surfacing: false, surfaceChallenges: {}, surfaceSecondsLeft: 30,
     currentTurnRole: 'captain', roundNum: 1,
     roundDone: {}
   };

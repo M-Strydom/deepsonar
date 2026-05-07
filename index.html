@@ -805,7 +805,7 @@ function renderCaptain(){
   } else if(done){
     navCtrl='<p style="color:var(--green);font-size:12px">✓ HEADING SET</p>';
   } else if(surf){
-    navCtrl='<p style="color:var(--amber);font-size:12px">SURFACING IN PROGRESS...</p>';
+    navCtrl='<div class="fire-timer" id="surf-timer">DIVING IN: '+(cr.surfaceSecondsLeft||30)+'s</div><p style="font-size:11px;color:var(--text3);margin-top:6px">Trail will reset when dive is complete.</p>';
   } else {
     navCtrl='<p style="color:var(--text3);font-size:12px">NOT YOUR TURN</p>';
   }
@@ -853,10 +853,13 @@ function captainMove(dir){
   markDone('captain');
 }
 function captainSurface(){
-  var cr=G[myCrew];cr.surfacing=true;cr.surfaceChallenges={};
-  addLog(crewName()+' SURFACING — sector '+getSector(cr.pos));
+  var cr=G[myCrew];
+  cr.surfacing=true;
+  cr.surfaceSecondsLeft=30;
+  addLog(crewName()+' SURFACING — 30s delay before dive. Sector '+getSector(cr.pos));
   send({type:'surface_alert',room:roomCode,crew:myCrew,sector:getSector(cr.pos)});
   pushState();renderStation();
+  startSurfaceTimer();
 }
 function captainApprove(){G[myCrew].fireApproved=true;addLog(crewName()+' captain APPROVED fire');pushState();renderStation();}
 function captainDeny(){G[myCrew].pendingFireCell=null;G[myCrew].fireApproved=false;selectedFireCell=null;addLog(crewName()+' captain DENIED fire');pushState();renderStation();}
@@ -887,12 +890,10 @@ function renderEngineer(){
   var cr=G[myCrew];
   var active=isMyTurnRole('engineer');
   var done=isDone('engineer');
-  if(cr.surfacing&&!cr.surfaceChallenges['engineer']){
-    if(active&&!curEngPuzzle)genEngPuzzle();
-    var q=curEngPuzzle;
-    return miniSubGrid()+'<div class="panel"><p class="pt">⚠ SURFACE CHALLENGE — Engineer</p>'
-      +(q?'<p style="font-size:13px;color:var(--text2);margin-bottom:10px">'+q.q+'</p>'+renderPuzzleOpts(q,'eng-surf','checkEngSurf')
-        :'<p style="color:var(--text3)">STANDBY</p>')
+  if(cr.surfacing){
+    return miniSubGrid()+'<div class="panel" style="border-color:var(--amber)"><p class="pt">⚠ SURFACED</p>'
+      +'<p style="font-size:13px;color:var(--amber);margin-bottom:6px">Sub is surfaced. Waiting to dive.</p>'
+      +'<div class="fire-timer" id="surf-timer">'+( 'DIVING IN: '+(cr.surfaceSecondsLeft||30)+'s')+'</div>'
       +'</div>';
   }
   if(active&&!done&&!curEngPuzzle)genEngPuzzle();
@@ -912,7 +913,7 @@ function renderEngineer(){
 function checkEng(i){
   var q=curEngPuzzle;if(!q)return;
   var el=document.getElementById('eng-opt-'+i);
-  if(i===q.ci){if(el)el.classList.add('ok');G[myCrew].charge=Math.min(100,G[myCrew].charge+25);curEngPuzzle=null;setTimeout(function(){markDone('engineer');},400);}
+  if(i===q.ci){if(el)el.classList.add('ok');curEngPuzzle=null;setTimeout(function(){markDone('engineer');},400);}
   else{if(el){el.classList.add('no');setTimeout(function(){el.classList.remove('no');},700);} addLog(crewName()+' engineer: wrong');}
 }
 function checkEngSurf(i){
@@ -931,11 +932,10 @@ function renderSonar(){
   var cr=G[myCrew];
   var active=isMyTurnRole('sonar');
   var done=isDone('sonar');
-  if(cr.surfacing&&!cr.surfaceChallenges['sonar']){
-    if(active&&!curEngPuzzle)genEngPuzzle();
-    var q=curEngPuzzle;
-    return miniSubGrid()+'<div class="panel"><p class="pt">⚠ SURFACE CHALLENGE — Sonar</p>'
-      +(q?'<p style="font-size:13px;color:var(--text2);margin-bottom:10px">'+q.q+'</p>'+renderPuzzleOpts(q,'sonar-surf','checkSonarSurf'):'<p style="color:var(--text3)">STANDBY</p>')
+  if(cr.surfacing){
+    return miniSubGrid()+'<div class="panel" style="border-color:var(--amber)"><p class="pt">⚠ SURFACED</p>'
+      +'<p style="font-size:13px;color:var(--amber);margin-bottom:6px">Sub is surfaced. Waiting to dive.</p>'
+      +'<div class="fire-timer" id="surf-timer">'+( 'DIVING IN: '+(cr.surfaceSecondsLeft||30)+'s')+'</div>'
       +'</div>';
   }
   var fixInfo=cr.sonarFix&&cr.sonarCoords?'<span class="badge bg">FIX: R'+(cr.sonarCoords.r+1)+' C'+(cr.sonarCoords.c+1)+' — '+getSector(cr.sonarCoords)+'</span>':'';
@@ -971,11 +971,10 @@ function renderWeapons(){
   var cr=G[myCrew];
   var active=isMyTurnRole('weapons');
   var done=isDone('weapons');
-  if(cr.surfacing&&!cr.surfaceChallenges['weapons']){
-    if(active&&!curWeapPuzzle)genWeapPuzzle();
-    var q=curWeapPuzzle;
-    return miniSubGrid()+'<div class="panel"><p class="pt">⚠ SURFACE CHALLENGE — Weapons</p>'
-      +(q?'<p style="font-size:13px;color:var(--text2);margin-bottom:10px">'+q.q+'</p>'+renderPuzzleOpts(q,'weap-surf','checkWeapSurf'):'<p style="color:var(--text3)">STANDBY</p>')
+  if(cr.surfacing){
+    return miniSubGrid()+'<div class="panel" style="border-color:var(--amber)"><p class="pt">⚠ SURFACED</p>'
+      +'<p style="font-size:13px;color:var(--amber);margin-bottom:6px">Sub is surfaced. Waiting to dive.</p>'
+      +'<div class="fire-timer" id="surf-timer">'+( 'DIVING IN: '+(cr.surfaceSecondsLeft||30)+'s')+'</div>'
       +'</div>';
   }
   var tg=myCrew==='A'?G.targetGridA:G.targetGridB;
@@ -1121,11 +1120,10 @@ function renderFirefighter(){
   var active=isMyTurnRole('firefighter');
   var done=isDone('firefighter');
 
-  if(cr.surfacing&&!cr.surfaceChallenges['firefighter']){
-    if(active&&!curEngPuzzle)genEngPuzzle();
-    var q=curEngPuzzle;
-    return miniSubGrid()+'<div class="panel"><p class="pt">⚠ SURFACE CHALLENGE — Firefighter</p>'
-      +(q?'<p style="font-size:13px;color:var(--text2);margin-bottom:10px">'+q.q+'</p>'+renderPuzzleOpts(q,'ff-surf','checkFFSurf'):'<p style="color:var(--text3)">STANDBY</p>')
+  if(cr.surfacing){
+    return miniSubGrid()+'<div class="panel" style="border-color:var(--amber)"><p class="pt">⚠ SURFACED</p>'
+      +'<p style="font-size:13px;color:var(--amber);margin-bottom:6px">Sub is surfaced. Waiting to dive.</p>'
+      +'<div class="fire-timer" id="surf-timer">'+( 'DIVING IN: '+(cr.surfaceSecondsLeft||30)+'s')+'</div>'
       +'</div>';
   }
 
@@ -1190,7 +1188,16 @@ function checkFF(i){
       cr.damage.fixed=true;
       if(fireTimerInterval){clearInterval(fireTimerInterval);fireTimerInterval=null;}
       addLog(crewName()+' FIRE CONTAINED — all 3 tasks complete',true);
-      setTimeout(function(){markDone('firefighter');},600);
+      // Clear firefighter's done flag so their next normal turn works fresh
+      if(G[myCrew].roundDone) delete G[myCrew].roundDone['firefighter'];
+      G[myCrew].maintenancePuzzle=null;
+      // If it's currently firefighter's turn in the order, advance past it
+      if(getCurRole()==='firefighter'){
+        setTimeout(function(){markDone('firefighter');},600);
+      } else {
+        // Otherwise just push state — their normal turn will come around
+        setTimeout(function(){pushState();renderStation();},600);
+      }
     } else {
       setTimeout(function(){pushState();renderStation();},400);
     }
@@ -1245,11 +1252,10 @@ function renderComms(){
   var cr=G[myCrew];
   var active=isMyTurnRole('comms');
   var done=isDone('comms');
-  if(cr.surfacing&&!cr.surfaceChallenges['comms']){
-    if(active&&!curEngPuzzle)genEngPuzzle();
-    var q=curEngPuzzle;
-    return miniSubGrid()+'<div class="panel"><p class="pt">⚠ SURFACE CHALLENGE — Comms</p>'
-      +(q?'<p style="font-size:13px;color:var(--text2);margin-bottom:10px">'+q.q+'</p>'+renderPuzzleOpts(q,'comms-surf','checkCommsSurf'):'<p style="color:var(--text3)">STANDBY</p>')
+  if(cr.surfacing){
+    return miniSubGrid()+'<div class="panel" style="border-color:var(--amber)"><p class="pt">⚠ SURFACED</p>'
+      +'<p style="font-size:13px;color:var(--amber);margin-bottom:6px">Sub is surfaced. Waiting to dive.</p>'
+      +'<div class="fire-timer" id="surf-timer">'+( 'DIVING IN: '+(cr.surfaceSecondsLeft||30)+'s')+'</div>'
       +'</div>';
   }
   var charge=cr.commsCharge||0;
@@ -1315,17 +1321,28 @@ function checkCommsSurf(i){
 }
 
 // ── SURFACE ─────────────────────────────────────────────────────────────────
-function completeSurfaceChallenge(role){
-  G[myCrew].surfaceChallenges[role]=true;
-  var roles=G.players[myCrew].flatMap?G.players[myCrew].flatMap(function(p){return p.roles||[];})
-    :G.players[myCrew].reduce(function(a,p){return a.concat(p.roles||[]);}, []);
-  var allDone=roles.every(function(r){return G[myCrew].surfaceChallenges[r];});
-  if(allDone){
-    G[myCrew].trail=[{r:G[myCrew].pos.r,c:G[myCrew].pos.c}];
-    G[myCrew].surfacing=false;G[myCrew].surfaceChallenges={};
-    addLog(crewName()+' DIVED — trail cleared');
-  }
-  pushState();renderStation();
+// Surface is now timer-based — no challenges needed
+function completeSurfaceChallenge(role){} // kept for compat, unused
+
+var surfaceTimerInterval=null;
+function startSurfaceTimer(){
+  if(surfaceTimerInterval)clearInterval(surfaceTimerInterval);
+  surfaceTimerInterval=setInterval(function(){
+    if(!G||!G[myCrew]||!G[myCrew].surfacing){clearInterval(surfaceTimerInterval);return;}
+    G[myCrew].surfaceSecondsLeft=Math.max(0,(G[myCrew].surfaceSecondsLeft||30)-1);
+    // update timer display live
+    var el=document.getElementById('surf-timer');
+    if(el) el.textContent='DIVING IN: '+G[myCrew].surfaceSecondsLeft+'s';
+    if(G[myCrew].surfaceSecondsLeft<=0){
+      clearInterval(surfaceTimerInterval);
+      G[myCrew].trail=[{r:G[myCrew].pos.r,c:G[myCrew].pos.c}];
+      G[myCrew].surfacing=false;
+      G[myCrew].surfaceSecondsLeft=0;
+      addLog(crewName()+' DIVED — trail cleared, ready to navigate');
+      pushState();renderStation();
+    }
+    if(G[myCrew].surfaceSecondsLeft%5===0&&G[myCrew].surfaceSecondsLeft>0)pushState();
+  },1000);
 }
 
 // ── TURN MANAGEMENT ─────────────────────────────────────────────────────────
