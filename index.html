@@ -1130,6 +1130,9 @@ function renderFirefighter(){
   }
 
   var fire=cr.damage&&!cr.damage.fixed;
+  // When fire is active, firefighter acts immediately regardless of turn order
+  var active=fire?myRoles.indexOf('firefighter')>=0:isMyTurnRole('firefighter');
+  var done=isDone('firefighter')&&!fire;
 
   if(fire){
     // ensure 3 puzzles exist
@@ -1141,7 +1144,7 @@ function renderFirefighter(){
     var body='<div class="'+timerCls+'" id="ff-timer">⏱ '+cr.damage.timeLeft+'s</div>'
       +subSilhouette(cr.hp,G.maxHp)
       +'<p style="font-size:11px;color:var(--red);margin:6px 0;letter-spacing:0.04em">PUZZLES REMAINING: '+(3-solved)+'/3 — Hull loses 10% every 60s</p>';
-    if(active&&solved<3&&cr.damage.puzzles&&cr.damage.puzzles[solved]){
+    if(solved<3&&cr.damage.puzzles&&cr.damage.puzzles[solved]){
       var p=cr.damage.puzzles[solved];
       body+='<p style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:8px">TASK '+(solved+1)+' OF 3</p>'
         +'<p style="font-size:13px;color:var(--text2);margin-bottom:10px">'+p.q+'</p>'
