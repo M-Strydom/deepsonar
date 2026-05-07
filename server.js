@@ -67,7 +67,7 @@ function makeCrew(hp, pos) {
   return {
     hp, pos: {...pos}, trail: [{...pos}],
     charge: 0, sonarFix: false, sonarCoords: null,
-    weaponsArmed: false, fireApproved: false, pendingFireCell: null,
+    weaponsArmed: false, fireApproved: false, pendingFireCell: null, weapChargeAttempted: false,
     decoyUsed: false, goSilent: false,
     commsCharge: 0, commsOption: null, commsActive: null,
     damage: null, maintenancePuzzle: null,
@@ -186,13 +186,12 @@ wss.on('connection', (ws) => {
       state[firingCrew].sonarCoords = null;
       state[firingCrew].weaponsArmed = false;
       state[firingCrew].fireApproved = false;
+      state[firingCrew].weapChargeAttempted = false;
 
       if (damage > 0) {
         oppCrew.hp = Math.max(0, oppCrew.hp - damage);
-        // Create damage event for firefighter
-        const opts = ['SEAL BULKHEAD','FLOOD COMPARTMENT','CUT POWER','ISOLATE SYSTEM'];
-        const correct = Math.floor(Math.random() * 4);
-        oppCrew.damage = { fixed: false, timeLeft: 60, opts, correctIdx: correct };
+        // Create damage event for firefighter — 3 puzzles required
+        oppCrew.damage = { fixed: false, timeLeft: 60, puzzles: [], solved: 0 };
       }
 
       const won = oppCrew.hp <= 0;

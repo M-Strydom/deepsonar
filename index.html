@@ -319,7 +319,7 @@ let WS=null,G=null,myRoles=[],myCrew=null,myName=null,roomCode=null;
 let sonarNotes=[],sonarMarks={},sonarFixCell=null;
 let shadowRole=null,curEngPuzzle=null,curWeapPuzzle=null;
 let fireTimerInterval=null,audioCtx=null,ambientTimer=null;
-let selectedFireCell=null;
+let selectedFireCell=null,weapChargeAttempted=false;
 
 // ── AUDIO ───────────────────────────────────────────────────────────────────
 function getAudio(){
@@ -410,7 +410,6 @@ function handleMsg(msg){
   if(msg.type==='state_update'){G=msg.state;if(onStation())renderStation();}
 
   if(msg.type==='torpedo_result'){
-    G=msg.state;
     var mine=msg.firingCrew===myCrew;
     var ov=document.getElementById('result-ov');
     var rt=document.getElementById('result-txt');
@@ -421,37 +420,56 @@ function handleMsg(msg){
       rs.textContent='-2 HULL DAMAGE';rs.style.color='var(--red)';
       if(mine){
         speak('Direct hit');
-        ov.classList.add('show');setTimeout(function(){ov.classList.remove('show');},3200);
+        ov.classList.add('show');
       } else {
         playKlaxon();triggerDamageFlash();speak('Brace for impact');
-        ov.classList.add('show');setTimeout(function(){ov.classList.remove('show');},3200);
+        ov.classList.add('show');
       }
     } else if(msg.result==='partial'){
       rt.textContent='PARTIAL DAMAGE INFLICTED';rt.style.color='var(--amber)';
       rs.textContent='-1 HULL DAMAGE';rs.style.color='var(--amber)';
       if(mine){
         speak('Partial damage inflicted');
-        ov.classList.add('show');setTimeout(function(){ov.classList.remove('show');},3200);
+        ov.classList.add('show');
       } else {
         playKlaxon();triggerDamageFlash();speak('Brace for impact');
-        ov.classList.add('show');setTimeout(function(){ov.classList.remove('show');},3200);
+        ov.classList.add('show');
       }
     } else {
       if(mine){
         rt.textContent='NO CONTACT';rt.style.color='var(--text3)';
         rs.textContent='TORPEDO MISSED';rs.style.color='var(--text3)';
         speak('No contact');
-        ov.classList.add('show');setTimeout(function(){ov.classList.remove('show');},3200);
+        ov.classList.add('show');
       }
     }
+    // After overlay fades (3s), apply state update with hull damage
+    setTimeout(function(){
+      ov.classList.remove('show');
+      G=msg.state;
+      // Add hit log to the relevant crew's log
+      if(msg.result!=='miss'&&msg.result!==''){
+        var dmg=msg.result==='direct'?2:1;
+        var hitCrew=msg.firingCrew==='A'?'B':'A';
+        var hitName=hitCrew==='A'?msg.state.nameA:msg.state.nameB;
+        var fireName=msg.firingCrew==='A'?msg.state.nameA:msg.state.nameB;
+        // Log on both subs
+        addLog('TORPEDO '+msg.result.toUpperCase()+': '+fireName+' hit '+hitName+' — -'+dmg+' HULL',true);
+      }
+      if(onStation())renderStation();
+      // start fire timer if we just took damage
+      if(!mine&&(msg.result==='direct'||msg.result==='partial')){
+        if(fireTimerInterval)clearInterval(fireTimerInterval);
+        startFireTimer();
+      }
+    },3200);
     if(msg.won){
       setTimeout(function(){
         document.getElementById('win-title').textContent=msg.winnerName.toUpperCase()+' WINS';
         document.getElementById('win-sub').textContent=msg.loserName.toUpperCase()+' HAS BEEN SUNK';
         show('s-win');
-      },3400);
+      },3600);
     }
-    if(onStation())renderStation();
   }
 
   if(msg.type==='sonar_ping'){
@@ -586,8 +604,9 @@ function crewName(){return crewLabel(myCrew);}
 function crewRound(){return G&&G[myCrew]?G[myCrew].roundNum:1;}
 function addLog(msg,imp){
   if(!G)return;
-  G.log.unshift((imp?'*** ':'')+msg+(imp?' ***':''));
-  if(G.log.length>80)G.log.pop();
+  var entry=(imp?'*** ':'')+msg+(imp?' ***':'');
+  if(myCrew){if(!G[myCrew].log)G[myCrew].log=[];G[myCrew].log.unshift(entry);if(G[myCrew].log.length>60)G[myCrew].log.pop();}
+  G.log.unshift(entry);if(G.log.length>80)G.log.pop();
 }
 function getSector(pos){
   var h=Math.floor(G.size/2);
@@ -678,9 +697,10 @@ function miniSubGrid(){
     +'</div>';
 }
 function miniLog(){
-  if(!G)return'';
-  return '<div class="panel" style="background:var(--bg2)"><p class="pt">System log</p>'
-    +G.log.slice(0,8).map(function(l){return '<div class="log-line'+(l.indexOf('***')===0?' imp':'')+'"> &gt; '+l+'</div>';}).join('')
+  if(!G||!myCrew)return'';
+  var logs=(G[myCrew]&&G[myCrew].log&&G[myCrew].log.length)?G[myCrew].log:G.log;
+  return '<div class="panel" style="background:var(--bg2)"><p class="pt">Sub Log</p>'
+    +logs.slice(0,8).map(function(l){return '<div class="log-line'+(l.indexOf('***')===0?' imp':'')+'"> &gt; '+l+'</div>';}).join('')
     +'</div>';
 }
 
@@ -762,6 +782,10 @@ function cellClick(r,c){
 
 // ── CAPTAIN ─────────────────────────────────────────────────────────────────
 function renderCaptain(){
+  // fire blocks all non-firefighter stations
+  if(hasFire()&&!G[myCrew].damage.fixed){
+    return miniSubGrid()+fireBlockBanner();
+  }
   var cr=G[myCrew];
   var active=isMyTurnRole('captain');
   var done=isDone('captain');
@@ -856,6 +880,10 @@ function renderPuzzleOpts(q,prefix,checkFn){
 
 // ── ENGINEER ────────────────────────────────────────────────────────────────
 function renderEngineer(){
+  // fire blocks all non-firefighter stations
+  if(hasFire()&&!G[myCrew].damage.fixed){
+    return miniSubGrid()+fireBlockBanner();
+  }
   var cr=G[myCrew];
   var active=isMyTurnRole('engineer');
   var done=isDone('engineer');
@@ -896,6 +924,10 @@ function checkEngSurf(i){
 
 // ── SONAR ───────────────────────────────────────────────────────────────────
 function renderSonar(){
+  // fire blocks all non-firefighter stations
+  if(hasFire()&&!G[myCrew].damage.fixed){
+    return miniSubGrid()+fireBlockBanner();
+  }
   var cr=G[myCrew];
   var active=isMyTurnRole('sonar');
   var done=isDone('sonar');
@@ -932,6 +964,10 @@ function checkSonarSurf(i){
 
 // ── WEAPONS ─────────────────────────────────────────────────────────────────
 function renderWeapons(){
+  // fire blocks all non-firefighter stations
+  if(hasFire()&&!G[myCrew].damage.fixed){
+    return miniSubGrid()+fireBlockBanner();
+  }
   var cr=G[myCrew];
   var active=isMyTurnRole('weapons');
   var done=isDone('weapons');
@@ -949,16 +985,20 @@ function renderWeapons(){
   var pendingApproval=cr.pendingFireCell&&!cr.fireApproved;
   var approved=cr.pendingFireCell&&cr.fireApproved;
 
-  // charge panel
+  // charge panel — max 1 attempt per turn
+  var chargeAttempted=G[myCrew].weapChargeAttempted;
   var chargeBody='';
-  if(active&&!done&&cr.charge<100&&!curWeapPuzzle){
-    chargeBody='<button class="pri" onclick="startWeapChallenge()">[ CHARGE TORPEDO — SOLVE CHALLENGE ]</button>';
-  } else if(active&&curWeapPuzzle){
+  if(cr.charge>=100){
+    chargeBody='<span class="badge bg">100% — TORPEDO FULLY CHARGED</span>';
+  } else if(active&&!done&&!chargeAttempted&&!curWeapPuzzle){
+    chargeBody='<button class="pri" onclick="startWeapChallenge()">[ CHARGE TORPEDO — SOLVE CHALLENGE ]</button>'
+      +'<p style="font-size:10px;color:var(--text3);margin-top:6px">1 attempt per turn. Wrong answer = no charge this turn.</p>';
+  } else if(active&&curWeapPuzzle&&!chargeAttempted){
     chargeBody='<p style="font-size:13px;color:var(--text2);margin-bottom:6px;line-height:1.8">'+curWeapPuzzle.q+'</p>'
-      +'<p style="font-size:10px;color:var(--text3);margin-bottom:12px">SOLVE TO GAIN +25% CHARGE</p>'
+      +'<p style="font-size:10px;color:var(--text3);margin-bottom:12px">SOLVE TO GAIN +25% CHARGE — ONE ATTEMPT ONLY</p>'
       +renderPuzzleOpts(curWeapPuzzle,'weap','checkWeap');
-  } else if(cr.charge>=100){
-    chargeBody='<span class="badge bg">100% — TORPEDO ARMED</span>';
+  } else if(chargeAttempted&&cr.charge<100){
+    chargeBody='<p style="font-size:12px;color:var(--text3)">Charge attempt used this turn. Current: '+Math.round(cr.charge)+'%</p>';
   }
 
   // fire panel status
@@ -1003,8 +1043,19 @@ function startWeapChallenge(){genWeapPuzzle();renderStation();}
 function checkWeap(i){
   var q=curWeapPuzzle;if(!q)return;
   var el=document.getElementById('weap-opt-'+i);
-  if(i===q.ci){if(el)el.classList.add('ok');G[myCrew].charge=Math.min(100,G[myCrew].charge+25);curWeapPuzzle=null;addLog(crewName()+' torpedo charge: '+Math.round(G[myCrew].charge)+'%');setTimeout(function(){pushState();renderStation();},400);}
-  else{if(el){el.classList.add('no');setTimeout(function(){el.classList.remove('no');},700);}}
+  G[myCrew].weapChargeAttempted=true;
+  if(i===q.ci){
+    if(el)el.classList.add('ok');
+    G[myCrew].charge=Math.min(100,G[myCrew].charge+25);
+    curWeapPuzzle=null;
+    addLog(crewName()+' torpedo charged: '+Math.round(G[myCrew].charge)+'%');
+    setTimeout(function(){pushState();renderStation();},400);
+  } else {
+    if(el){el.classList.add('no');setTimeout(function(){el.classList.remove('no');},700);}
+    curWeapPuzzle=null;
+    addLog(crewName()+' weapons challenge failed — no charge this turn');
+    setTimeout(function(){pushState();renderStation();},800);
+  }
 }
 function checkWeapSurf(i){
   var q=curWeapPuzzle;if(!q)return;
@@ -1023,16 +1074,53 @@ function requestFire(){
 function confirmFire(){
   var cr=G[myCrew];
   if(!cr.pendingFireCell||!cr.fireApproved)return;
+  if(cr.charge<100){toast('TORPEDO NOT CHARGED — need 100%');return;}
   send({type:'fire_torpedo',room:roomCode,firingCrew:myCrew,row:cr.pendingFireCell.r,col:cr.pendingFireCell.c});
   cr.pendingFireCell=null;cr.fireApproved=false;selectedFireCell=null;
   markDone('weapons');
 }
 
 // ── FIREFIGHTER ─────────────────────────────────────────────────────────────
+function subSilhouette(hp,maxHp){
+  // SVG sub outline showing hull depletion
+  var pct=maxHp>0?hp/maxHp:0;
+  var fillColor=pct>0.6?'var(--green3)':pct>0.3?'var(--amber)':'var(--red)';
+  var w=200,h=60;
+  var filledW=Math.round(w*pct);
+  return '<div style="text-align:center;margin:10px 0">'
+    +'<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="overflow:visible">'
+    // hull outline
+    +'<path d="M10,30 Q10,15 30,15 L150,15 Q175,15 190,30 Q175,45 150,45 L30,45 Q10,45 10,30Z" fill="none" stroke="var(--border2)" stroke-width="2"/>'
+    // conning tower
+    +'<rect x="70" y="6" width="40" height="10" rx="3" fill="none" stroke="var(--border2)" stroke-width="2"/>'
+    // fill based on health
+    +'<clipPath id="hullClip"><path d="M10,30 Q10,15 30,15 L150,15 Q175,15 190,30 Q175,45 150,45 L30,45 Q10,45 10,30Z"/></clipPath>'
+    +'<rect x="10" y="15" width="'+Math.round(180*pct)+'" height="30" fill="'+fillColor+'" opacity="0.4" clip-path="url(#hullClip)"/>'
+    +'</svg>'
+    +'<p style="font-size:11px;color:'+fillColor+';letter-spacing:0.08em;margin-top:4px">HULL: '+hp+'/'+maxHp+'</p>'
+    +'</div>';
+}
+
+function hasFire(){return G&&G[myCrew]&&G[myCrew].damage&&!G[myCrew].damage.fixed;}
+
+function fireBlockBanner(){
+  return '<div style="background:rgba(255,51,51,0.12);border:2px solid var(--red);border-radius:4px;padding:12px;margin-bottom:10px;text-align:center">'
+    +'<p style="font-size:13px;font-weight:700;color:var(--red);letter-spacing:0.1em">🔥 FIRE ON BOARD</p>'
+    +'<p style="font-size:11px;color:var(--text3);margin-top:4px">All stations locked. Firefighter is responding.</p>'
+    +'</div>';
+}
+
+function genFFDamagePuzzle(){
+  // random puzzle from all 5 types for damage control
+  var idx=Math.floor(Math.random()*5);
+  return PUZZLES[idx]();
+}
+
 function renderFirefighter(){
   var cr=G[myCrew];
   var active=isMyTurnRole('firefighter');
   var done=isDone('firefighter');
+
   if(cr.surfacing&&!cr.surfaceChallenges['firefighter']){
     if(active&&!curEngPuzzle)genEngPuzzle();
     var q=curEngPuzzle;
@@ -1040,49 +1128,73 @@ function renderFirefighter(){
       +(q?'<p style="font-size:13px;color:var(--text2);margin-bottom:10px">'+q.q+'</p>'+renderPuzzleOpts(q,'ff-surf','checkFFSurf'):'<p style="color:var(--text3)">STANDBY</p>')
       +'</div>';
   }
-  var hasDamage=cr.damage&&!cr.damage.fixed;
-  if(hasDamage&&active&&!cr.damage.puzzle){
-    var a=Math.floor(Math.random()*5)+2,b=Math.floor(Math.random()*5)+2,target=a*b;
-    var wo=[target+a,target-b,target+3,a+b];
-    var opts=[target].concat(wo.filter(function(x){return x!==target;}).slice(0,3)).sort(function(){return Math.random()-0.5;});
-    cr.damage.puzzle={q:'CRITICAL: '+a+' &times; '+b+' = ?',opts:opts.map(String),ci:opts.indexOf(target)};
-  }
-  var body='';
-  if(hasDamage){
+
+  var fire=cr.damage&&!cr.damage.fixed;
+
+  if(fire){
+    // ensure 3 puzzles exist
+    if(!cr.damage.puzzles) cr.damage.puzzles=[];
+    if(active){
+      while(cr.damage.puzzles.length<3) cr.damage.puzzles.push(genFFDamagePuzzle());
+    }
+    var solved=cr.damage.solved||0;
     var timerCls='fire-timer'+(cr.damage.timeLeft<20?' urg':'');
-    body='<div class="'+timerCls+'" id="ff-timer">TIME: '+cr.damage.timeLeft+'s</div>'
-      +'<p style="font-size:11px;color:var(--red);margin:8px 0">CONTAIN DAMAGE — FAIL = +1 HULL PER MINUTE</p>';
-    if(active&&cr.damage.puzzle){
-      body+='<p style="font-size:13px;color:var(--text2);margin-bottom:10px">'+cr.damage.puzzle.q+'</p>'
-        +renderPuzzleOpts(cr.damage.puzzle,'ff','checkFF');
-    } else if(active){
-      body+='<p style="color:var(--text3);font-size:11px">Generating puzzle...</p>';
+    var body='<div class="'+timerCls+'" id="ff-timer">⏱ '+cr.damage.timeLeft+'s</div>'
+      +subSilhouette(cr.hp,G.maxHp)
+      +'<p style="font-size:11px;color:var(--red);margin:6px 0;letter-spacing:0.04em">PUZZLES REMAINING: '+(3-solved)+'/3 — Hull loses 10% every 60s</p>';
+    if(active&&solved<3&&cr.damage.puzzles&&cr.damage.puzzles[solved]){
+      var p=cr.damage.puzzles[solved];
+      body+='<p style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:8px">TASK '+(solved+1)+' OF 3</p>'
+        +'<p style="font-size:13px;color:var(--text2);margin-bottom:10px">'+p.q+'</p>'
+        +renderPuzzleOpts(p,'ff','checkFF');
+    } else if(solved>=3){
+      body+='<p style="color:var(--green);font-weight:700">✓ ALL TASKS COMPLETE — DAMAGE CONTAINED</p>';
     } else {
       body+='<p style="color:var(--text3);font-size:11px">Firefighter responding...</p>';
     }
-  } else {
-    var maintHtml='';
-    if(active&&!done){
-      if(!cr.maintenancePuzzle) cr.maintenancePuzzle=genMaintenancePuzzle();
-      var mp=cr.maintenancePuzzle;
-      maintHtml='<p style="font-size:13px;color:var(--text2);margin-bottom:6px;line-height:1.8">'+mp.q+'</p>'
-        +renderPuzzleOpts(mp,'maint','checkMaintenance');
-    } else if(done){
-      maintHtml='<p style="color:var(--green);font-size:12px">✓ MAINTENANCE DONE</p>';
-    } else {
-      maintHtml='<p style="color:var(--text3);font-size:12px">STANDBY</p>';
-    }
-    body='<p style="font-size:11px;color:var(--text3);margin-bottom:12px">Routine maintenance — solve to confirm systems operational.</p>'+maintHtml;
+    return miniSubGrid()+'<div class="panel" style="border-color:var(--red)"><p class="pt">🔥 DAMAGE CONTROL</p>'+body+'</div>';
   }
-  return miniSubGrid()+'<div class="panel" style="'+(hasDamage?'border-color:var(--red)':'')+'">'
-    +'<p class="pt">'+(hasDamage?'⚠ DAMAGE CONTROL':'Maintenance check')+'</p>'
-    +body+'</div>';
+
+  // no fire — maintenance (1 puzzle)
+  var maintHtml='';
+  if(active&&!done){
+    if(!cr.maintenancePuzzle) cr.maintenancePuzzle=genMaintenancePuzzle();
+    var mp=cr.maintenancePuzzle;
+    maintHtml='<p style="font-size:13px;color:var(--text2);margin-bottom:6px;line-height:1.8">'+mp.q+'</p>'
+      +renderPuzzleOpts(mp,'maint','checkMaintenance');
+  } else if(done){
+    maintHtml='<p style="color:var(--green);font-size:12px">✓ MAINTENANCE DONE</p>';
+  } else {
+    maintHtml='<p style="color:var(--text3);font-size:12px">STANDBY</p>';
+  }
+  return miniSubGrid()+'<div class="panel"><p class="pt">Maintenance check</p>'
+    +'<p style="font-size:11px;color:var(--text3);margin-bottom:12px">Routine maintenance — solve to confirm systems operational.</p>'
+    +maintHtml+'</div>';
 }
+
 function checkFF(i){
-  var cr=G[myCrew];if(!cr.damage||!cr.damage.puzzle)return;
+  var cr=G[myCrew];
+  if(!cr.damage||!cr.damage.puzzles)return;
+  var solved=cr.damage.solved||0;
+  if(solved>=3)return;
+  var p=cr.damage.puzzles[solved];
+  if(!p)return;
   var el=document.getElementById('ff-opt-'+i);
-  if(i===cr.damage.puzzle.ci){if(el)el.classList.add('ok');cr.damage.fixed=true;addLog(crewName()+' damage contained',true);if(fireTimerInterval){clearInterval(fireTimerInterval);fireTimerInterval=null;}setTimeout(function(){markDone('firefighter');},400);}
-  else{if(el){el.classList.add('no');setTimeout(function(){el.classList.remove('no');},700);}}
+  if(i===p.ci){
+    if(el)el.classList.add('ok');
+    cr.damage.solved=(cr.damage.solved||0)+1;
+    addLog(crewName()+' damage task '+(cr.damage.solved)+'/3 complete');
+    if(cr.damage.solved>=3){
+      cr.damage.fixed=true;
+      if(fireTimerInterval){clearInterval(fireTimerInterval);fireTimerInterval=null;}
+      addLog(crewName()+' FIRE CONTAINED — all 3 tasks complete',true);
+      setTimeout(function(){markDone('firefighter');},600);
+    } else {
+      setTimeout(function(){pushState();renderStation();},400);
+    }
+  } else {
+    if(el){el.classList.add('no');setTimeout(function(){el.classList.remove('no');},700);}
+  }
 }
 function checkFFSurf(i){
   var q=curEngPuzzle;if(!q)return;
@@ -1099,22 +1211,35 @@ function checkMaintenance(i){
 function startFireTimer(){
   if(fireTimerInterval)clearInterval(fireTimerInterval);
   fireTimerInterval=setInterval(function(){
-    if(!G||!G[myCrew]||!G[myCrew].damage||G[myCrew].damage.fixed){clearInterval(fireTimerInterval);return;}
-    G[myCrew].damage.timeLeft--;
+    if(!G||!G[myCrew]||!G[myCrew].damage||G[myCrew].damage.fixed){clearInterval(fireTimerInterval);fireTimerInterval=null;return;}
+    G[myCrew].damage.timeLeft=Math.max(0,G[myCrew].damage.timeLeft-1);
+    // update timer display live without full re-render
     var el=document.getElementById('ff-timer');
-    if(el){el.textContent='TIME: '+G[myCrew].damage.timeLeft+'s';el.classList.toggle('urg',G[myCrew].damage.timeLeft<20);}
+    if(el){el.textContent='⏱ '+G[myCrew].damage.timeLeft+'s';el.classList.toggle('urg',G[myCrew].damage.timeLeft<20);}
     if(G[myCrew].damage.timeLeft<=0){
-      G[myCrew].hp=Math.max(0,G[myCrew].hp-1);
+      // 10% of maxHp damage
+      var hpLoss=Math.max(1,Math.round(G.maxHp*0.1));
+      G[myCrew].hp=Math.max(0,G[myCrew].hp-hpLoss);
       G[myCrew].damage.timeLeft=60;
-      addLog(crewName()+' extra hull damage — firefighter too slow',true);
+      addLog(crewName()+' HULL DAMAGE: -'+hpLoss+' from uncontained fire',true);
       pushState();
+      if(G[myCrew].hp<=0){
+        clearInterval(fireTimerInterval);
+        document.getElementById('win-title').textContent=(myCrew==='A'?G.nameB:G.nameA).toUpperCase()+' WINS';
+        document.getElementById('win-sub').textContent=crewName().toUpperCase()+' SUNK BY FIRE';
+        show('s-win');
+      }
     }
-    if(G[myCrew].damage.timeLeft%10===0)pushState();
+    if(G[myCrew].damage.timeLeft%15===0)pushState();
   },1000);
 }
 
 // ── COMMS ───────────────────────────────────────────────────────────────────
 function renderComms(){
+  // fire blocks all non-firefighter stations
+  if(hasFire()&&!G[myCrew].damage.fixed){
+    return miniSubGrid()+fireBlockBanner();
+  }
   var cr=G[myCrew];
   var active=isMyTurnRole('comms');
   var done=isDone('comms');
@@ -1227,7 +1352,8 @@ function advanceTurn(){
     G[myCrew].roundDone={};
     G[myCrew].roundNum=(G[myCrew].roundNum||1)+1;
     G[myCrew].commsCharge=Math.min(100,(G[myCrew].commsCharge||0)+20);
-    curEngPuzzle=null;curWeapPuzzle=null;
+    G[myCrew].weapChargeAttempted=false;
+    curEngPuzzle=null;curWeapPuzzle=null;weapChargeAttempted=false;
     addLog('--- ROUND '+G[myCrew].roundNum+' — '+crewName()+' ---');
   } else {
     G[myCrew].currentTurnRole=ROLE_ORDER[next];
