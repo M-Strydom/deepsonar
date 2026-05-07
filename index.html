@@ -57,7 +57,7 @@ body.damaged{animation:dmg 5s forwards}
 .ccell.qc{background:rgba(255,80,80,0.04)}
 .ccell.qd{background:rgba(100,255,100,0.04)}
 .ccell.sub{background:rgba(0,255,136,0.18);color:var(--green)}
-.ccell.trail{background:rgba(0,153,68,0.07)}
+.ccell.trail{background:rgba(180,180,180,0.22);border-color:rgba(180,180,180,0.4)}
 .ccell.mark{background:rgba(0,255,136,0.09);color:var(--green3);cursor:pointer}
 .ccell.clickable:hover{background:rgba(0,255,136,0.06);cursor:pointer}
 .ccell.hit-direct{background:rgba(255,51,51,0.2);color:var(--red)}
@@ -667,11 +667,23 @@ function renderStation(){
   } else {
     var sorted=myRoles.slice().sort(function(a,b){return ROLE_ORDER.indexOf(a)-ROLE_ORDER.indexOf(b);});
     var html='';
-    sorted.forEach(function(role,i){
-      var ph=renderPanel(role);
-      if(i===0){html+=ph;}
-      else{html+='<div style="border-top:2px solid var(--green4);margin-top:8px;padding-top:10px"><span style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:0.14em;text-transform:uppercase;background:var(--bg2);padding:3px 8px;display:inline-block;margin-bottom:8px">'+(RD[role]?RD[role].icon:'')+' '+(RD[role]?RD[role].name:role).toUpperCase()+' STATION</span>'+ph+'</div>';}
-    });
+    // If fire is active and this player has firefighter role, show firefighter panel first
+    var fireActive=hasFire()&&!G[myCrew].damage.fixed;
+    var hasFF=myRoles.indexOf('firefighter')>=0;
+    if(fireActive&&hasFF){
+      html=renderPanel('firefighter');
+      // show other roles as blocked banners below
+      sorted.forEach(function(role){
+        if(role==='firefighter')return;
+        html+='<div style="border-top:2px solid var(--green4);margin-top:8px;padding-top:10px"><span style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:0.14em;text-transform:uppercase;background:var(--bg2);padding:3px 8px;display:inline-block;margin-bottom:8px">'+(RD[role]?RD[role].icon:'')+' '+(RD[role]?RD[role].name:role).toUpperCase()+' STATION</span>'+miniSubGrid()+fireBlockBanner()+'</div>';
+      });
+    } else {
+      sorted.forEach(function(role,i){
+        var ph=renderPanel(role);
+        if(i===0){html+=ph;}
+        else{html+='<div style="border-top:2px solid var(--green4);margin-top:8px;padding-top:10px"><span style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:0.14em;text-transform:uppercase;background:var(--bg2);padding:3px 8px;display:inline-block;margin-bottom:8px">'+(RD[role]?RD[role].icon:'')+' '+(RD[role]?RD[role].name:role).toUpperCase()+' STATION</span>'+ph+'</div>';}
+      });
+    }
     body.innerHTML=html+miniLog();
   }
   bindGrids();
