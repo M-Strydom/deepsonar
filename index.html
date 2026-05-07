@@ -202,6 +202,27 @@ select option{background:var(--bg3)}
       <div><label>Hits to sink</label><select id="h-hp"><option value="3" selected>3 hits</option><option value="5">5 hits</option><option value="2">2 hits fast</option></select></div>
     </div>
   </div>
+  <div class="panel">
+    <p class="pt">Host participation</p>
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--text2);text-transform:none;letter-spacing:0">
+      <input type="checkbox" id="h-join" style="width:auto;accent-color:var(--green3)">
+      Join the game as a player
+    </label>
+    <div id="h-join-fields" style="display:none;margin-top:12px">
+      <div style="margin-bottom:10px"><label>Your name</label><input id="h-name" placeholder="Your name"></div>
+      <div><label>Role preference</label>
+        <select id="h-role">
+          <option value="random">Random</option>
+          <option value="captain">Captain</option>
+          <option value="engineer">Engineer</option>
+          <option value="sonar">Sonar Operator</option>
+          <option value="weapons">Weapons Officer</option>
+          <option value="firefighter">Firefighter</option>
+          <option value="comms">Comms Officer</option>
+        </select>
+      </div>
+    </div>
+  </div>
   <button class="pri" onclick="hostCreate()" style="width:100%;padding:12px">[ INITIALISE MISSION ]</button>
   <div id="hca" style="margin-top:12px"></div>
 </div>
@@ -298,6 +319,7 @@ let WS=null,G=null,myRoles=[],myCrew=null,myName=null,roomCode=null;
 let sonarNotes=[],sonarMarks={},sonarFixCell=null;
 let shadowRole=null,curEngPuzzle=null,curWeapPuzzle=null;
 let fireTimerInterval=null,audioCtx=null,ambientTimer=null;
+let selectedFireCell=null;
 let ttsVoice=null;
 
 // ── AUDIO ────────────────────────────────────────────────────────────────────
@@ -393,34 +415,61 @@ function handleMsg(msg){
   if(msg.type==='hosted'){roomCode=msg.code;document.getElementById('hl-code').textContent=msg.code;show('s-host-lobby');}
   if(msg.type==='joined'){myName=msg.name;show('s-player-lobby');document.getElementById('pl-title').textContent='ABOARD — '+msg.name.toUpperCase();}
   if(msg.type==='lobby_update') renderLobby(msg.lobby);
-  if(msg.type==='game_started'){G=msg.state;findMyRole();showRoleReveal();}
+  if(msg.type==='game_started'){
+    G=msg.state;
+    // if host joined as player, their name comes from the game_started message
+    if(!myName&&msg.hostName) myName=msg.hostName;
+    findMyRole();showRoleReveal();
+  }
   if(msg.type==='state_update'){G=msg.state;if(onStation()) renderStation();}
 
   if(msg.type==='torpedo_result'){
     G=msg.state;
     const mine=msg.firingCrew===myCrew;
-    // show result overlay
     const ov=document.getElementById('result-ov');
     const rt=document.getElementById('result-txt');
     const rs=document.getElementById('result-sub');
     if(msg.result==='direct'){
-      rt.textContent='DIRECT HIT';rt.style.color='var(--red)';
-      rs.textContent='-2 HULL DAMAGE';rs.style.color='var(--red)';
-      if(mine){speak('Direct hit');}
-      else{playKlaxon();triggerDamageFlash();}
+      if(mine){
+        rt.textContent='DIRECT HIT';rt.style.color='var(--red)';
+        rs.textContent='-2 HULL DAMAGE';rs.style.color='var(--red)';
+        ov.classList.add('show');
+        setTimeout(()=>ov.classList.remove('show'),3200);
+        speak('Direct hit');
+      } else {
+        playKlaxon();triggerDamageFlash();
+        speak('Brace for impact');
+        rt.textContent='HULL BREACH';rt.style.color='var(--red)';
+        rs.textContent='-2 HULL DAMAGE';rs.style.color='var(--red)';
+        ov.classList.add('show');
+        setTimeout(()=>ov.classList.remove('show'),3200);
+      }
     } else if(msg.result==='partial'){
-      rt.textContent='PARTIAL DAMAGE';rt.style.color='var(--amber)';
-      rs.textContent='-1 HULL DAMAGE';rs.style.color='var(--amber)';
-      if(mine){speak('Partial damage');}
-      else{playKlaxon();triggerDamageFlash();}
+      if(mine){
+        rt.textContent='PARTIAL DAMAGE INFLICTED';rt.style.color='var(--amber)';
+        rs.textContent='-1 HULL DAMAGE';rs.style.color='var(--amber)';
+        ov.classList.add('show');
+        setTimeout(()=>ov.classList.remove('show'),3200);
+        speak('Partial damage inflicted');
+      } else {
+        playKlaxon();triggerDamageFlash();
+        speak('Brace for impact');
+        rt.textContent='HULL DAMAGE';rt.style.color='var(--amber)';
+        rs.textContent='-1 HULL DAMAGE';rs.style.color='var(--amber)';
+        ov.classList.add('show');
+        setTimeout(()=>ov.classList.remove('show'),3200);
+      }
     } else {
-      rt.textContent='NO CONTACT';rt.style.color='var(--text3)';
-      rs.textContent='TORPEDO MISSED';rs.style.color='var(--text3)';
-      if(mine) speak('No contact');
+      // miss — only firing sub sees anything
+      if(mine){
+        rt.textContent='NO CONTACT';rt.style.color='var(--text3)';
+        rs.textContent='TORPEDO MISSED';rs.style.color='var(--text3)';
+        ov.classList.add('show');
+        setTimeout(()=>ov.classList.remove('show'),3200);
+        speak('No contact');
+      }
+      // enemy sees nothing
     }
-    ov.style.animation='none';rt.style.animation='none';rs.style.animation='none';
-    ov.classList.add('show');
-    setTimeout(()=>{ov.classList.remove('show');},3200);
     if(msg.won){
       setTimeout(()=>{
         document.getElementById('win-title').textContent=msg.winnerName.toUpperCase()+' WINS';
@@ -627,6 +676,15 @@ function renderPanel(role,sup){
 }
 
 // ── SUB STATUS ───────────────────────────────────────────────────────────────
+function miniSubGrid(){
+  const cr=G[myCrew];
+  return `<div class="panel" style="margin-bottom:8px">
+    <p class="pt">Sub position — Sector ${getSector(cr.pos)}</p>
+    ${buildGrid({showSub:true,showTrail:true})}
+    <p style="font-size:10px;color:var(--text3);margin-top:6px;letter-spacing:0.07em">ROW ${cr.pos.r+1} · COL ${cr.pos.c+1} · SECTOR ${getSector(cr.pos)}</p>
+  </div>`;
+}
+
 function subStatus(){
   const cr=G[myCrew];
   return `<div class="panel" style="margin-bottom:8px">
@@ -708,6 +766,8 @@ function renderCaptain(){
   const active=isMyTurnRole('captain');
   const done=isDone('captain');
   const surf=cr.surfacing;
+  const pendingFire=cr.pendingFireCell&&!cr.fireApproved;
+  const approvedFire=cr.pendingFireCell&&cr.fireApproved;
   return subStatus()+`
   <div class="panel">
     <p class="pt">Navigation — Sector ${getSector(cr.pos)}</p>
@@ -725,7 +785,20 @@ function renderCaptain(){
     `:done?`<p style="color:var(--green);font-size:12px">✓ HEADING SET</p>`:
     surf?`<p style="color:var(--amber);font-size:12px">SURFACING IN PROGRESS...</p>`:
     `<p style="color:var(--text3);font-size:12px">NOT YOUR TURN</p>`}
-  </div>`;
+  </div>
+  ${pendingFire?`<div class="panel" style="border-color:var(--red)">
+    <p class="pt">⚠ FIRE AUTHORISATION REQUEST</p>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:6px">Weapons officer requests permission to fire at:</p>
+    <p style="font-size:14px;font-weight:700;color:var(--amber);margin-bottom:12px">ROW ${cr.pendingFireCell.r+1} · COL ${cr.pendingFireCell.c+1} · SECTOR ${getSector(cr.pendingFireCell)}</p>
+    <div style="display:flex;gap:8px">
+      <button class="pri" onclick="captainApprove()" style="flex:1">[ APPROVE FIRE ]</button>
+      <button onclick="captainDeny()" style="flex:1">[ DENY ]</button>
+    </div>
+  </div>`:''}
+  ${approvedFire?`<div class="panel" style="border-color:var(--green3)">
+    <p class="pt">Fire authorised</p>
+    <p style="font-size:12px;color:var(--green)">✓ Fire approved for ROW ${cr.pendingFireCell.r+1} · COL ${cr.pendingFireCell.c+1}. Weapons officer is firing.</p>
+  </div>`:''}`;
 }
 
 function captainMove(dir){
@@ -750,6 +823,20 @@ function captainSurface(){
   cr.surfaceChallenges={};
   addLog(crewName()+' SURFACING — sector '+getSector(cr.pos));
   send({type:'surface_alert',room:roomCode,crew:myCrew,sector:getSector(cr.pos)});
+  pushState();renderStation();
+}
+
+function captainApprove(){
+  G[myCrew].fireApproved=true;
+  addLog(crewName()+' captain APPROVED fire');
+  pushState();renderStation();
+}
+
+function captainDeny(){
+  G[myCrew].pendingFireCell=null;
+  G[myCrew].fireApproved=false;
+  selectedFireCell=null;
+  addLog(crewName()+' captain DENIED fire');
   pushState();renderStation();
 }
 
@@ -789,7 +876,7 @@ function renderEngineer(){
   }
   if(active&&!done&&!curEngPuzzle) genEngPuzzle();
   const q=curEngPuzzle;
-  return `<div class="panel">
+  return miniSubGrid()+`<div class="panel">
     <p class="pt">System check — Puzzle type ${((cr.roundNum||1)-1)%5+1}</p>
     ${active&&!done&&q?`
     <p style="font-size:13px;color:var(--text2);margin-bottom:6px;line-height:1.8">${q.q}</p>
@@ -854,7 +941,7 @@ function renderSonar(){
       </div>`:`<p style="color:var(--text3)">STANDBY</p>`}
     </div>`;
   }
-  return `<div class="panel">
+  return miniSubGrid()+`<div class="panel">
     <p class="pt">Sonar station</p>
     <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Click grid to place fix marker ⊕. Coords sent to weapons automatically.</p>
     ${buildGrid({marks:sonarMarks,showFix:true,onCellClick:true})}
@@ -889,30 +976,46 @@ function renderWeapons(){
       </div>`:`<p style="color:var(--text3)">STANDBY</p>`}
     </div>`;
   }
-  const canFire=cr.charge>=100&&cr.sonarFix&&cr.sonarCoords;
   const tg=myCrew==='A'?G.targetGridA:G.targetGridB;
-  return `<div class="panel">
+  const hasCharge=cr.charge>=100;
+  const hasFix=cr.sonarFix&&cr.sonarCoords;
+  const canRequest=hasCharge&&hasFix&&!cr.pendingFireCell;
+  const pendingApproval=cr.pendingFireCell&&!cr.fireApproved;
+  const approved=cr.pendingFireCell&&cr.fireApproved;
+  return miniSubGrid()+`<div class="panel">
     <p class="pt">Torpedo tube</p>
     <div class="prog"><div class="prog-fill" style="width:${Math.round(cr.charge)}%"></div></div>
     <p style="font-size:11px;color:var(--text3);margin-bottom:10px;letter-spacing:0.05em">CHARGE: <strong style="color:var(--green)">${Math.round(cr.charge)}%</strong> — max +25% per round via challenge
       ${cr.charge>=100?'<span class="badge bg" style="margin-left:6px">FULL</span>':''}</p>
     ${active&&!done&&cr.charge<100&&!curWeapPuzzle?`<button class="pri" onclick="startWeapChallenge()">[ CHARGE TORPEDO — SOLVE CHALLENGE ]</button>`:''}
-    ${active&&curWeapPuzzle&&cr.charge<100?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="weap-opts">
+    ${active&&curWeapPuzzle?`
+    <p style="font-size:13px;color:var(--text2);margin-bottom:6px;line-height:1.8">${curWeapPuzzle.q}</p>
+    <p style="font-size:10px;color:var(--text3);margin-bottom:12px;letter-spacing:0.05em">SOLVE TO GAIN +25% CHARGE</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="weap-opts">
       ${curWeapPuzzle.opts.map((o,i)=>`<div class="eopt" id="wopt-${i}" onclick="checkWeap(${i})">${o}</div>`).join('')}
     </div>`:''}
   </div>
-  <div class="panel" style="${canFire?'border-color:var(--red)':''}">
+  <div class="panel" style="${approved?'border-color:var(--red)':pendingApproval?'border-color:var(--amber)':''}">
     <p class="pt">Fire control</p>
     ${cr.sonarCoords?`<p style="font-size:12px;color:var(--amber);margin-bottom:8px;font-weight:700">⊕ SONAR FIX: ROW ${cr.sonarCoords.r+1} · COL ${cr.sonarCoords.c+1} · SECTOR ${getSector(cr.sonarCoords)}</p>`:`<p style="font-size:11px;color:var(--text3);margin-bottom:8px">Awaiting sonar fix...</p>`}
-    <p style="font-size:12px;margin-bottom:10px">CHARGE: ${cr.charge>=100?'<span class="badge bg">100% READY</span>':'<span class="badge br">'+Math.round(cr.charge)+'%</span>'}</p>
-    ${canFire?`<p style="font-size:12px;font-weight:700;margin-bottom:10px;color:var(--red);letter-spacing:0.05em">⚠ SELECT TARGET ON GRID AND FIRE</p>
-      ${buildTargetGrid(tg)}
-    `:`<p style="font-size:11px;color:var(--text3)">Need: 100% charge + sonar fix.</p>`}
-    ${active&&!canFire&&!done?`<button class="pass" onclick="passOrders()">[ PASS ORDERS ]</button>`:''}
+    ${pendingApproval?`<div style="background:rgba(255,170,0,0.08);border:1px solid rgba(255,170,0,0.3);border-radius:3px;padding:10px;margin-bottom:10px">
+      <p style="font-size:11px;color:var(--amber);letter-spacing:0.08em">⏳ AWAITING CAPTAIN APPROVAL</p>
+      <p style="font-size:12px;color:var(--text2);margin-top:4px">Target: ROW ${cr.pendingFireCell.r+1} · COL ${cr.pendingFireCell.c+1}</p>
+    </div>`:''}
+    ${approved?`<div style="background:rgba(0,255,136,0.08);border:1px solid var(--green4);border-radius:3px;padding:10px;margin-bottom:10px">
+      <p style="font-size:11px;color:var(--green);letter-spacing:0.08em;font-weight:700">✓ CAPTAIN APPROVED — FIRE WHEN READY</p>
+      <p style="font-size:12px;color:var(--text2);margin-top:4px">Target: ROW ${cr.pendingFireCell.r+1} · COL ${cr.pendingFireCell.c+1}</p>
+    </div>
+    <button class="danger" onclick="confirmFire()" style="width:100%;margin-bottom:10px;font-size:13px;padding:12px">[ FIRE TORPEDO ]</button>`:''}
+    ${canRequest&&active?`<p style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--text2)">SELECT TARGET — then request approval</p>
+      ${buildTargetGrid(tg,true)}`:
+    hasCharge&&hasFix&&!active?buildTargetGrid(tg,false):
+    !hasCharge||!hasFix?`<p style="font-size:11px;color:var(--text3)">Need: 100% charge + sonar fix.${!hasCharge?' Charge: '+Math.round(cr.charge)+'%':''}${!hasFix?' No sonar fix.':''}</p>`:''}
+    ${active&&!done&&!approved?`<button class="pass" onclick="passOrders()">[ PASS ORDERS ]</button>`:''}
   </div>`;
 }
 
-function buildTargetGrid(tg){
+function buildTargetGrid(tg,clickable){
   const sz=G.size<=8?28:G.size<=10?24:20;
   const half=Math.floor(G.size/2);
   let html=`<div style="overflow-x:auto;margin-bottom:8px"><div style="display:inline-block">`;
@@ -927,15 +1030,18 @@ function buildTargetGrid(tg){
       const isQH=r===half-1,isQV=c===half-1;
       const qcls=r<half?(c<half?'qa':'qb'):(c<half?'qc':'qd');
       const isFix=G[myCrew].sonarCoords&&G[myCrew].sonarCoords.r===r&&G[myCrew].sonarCoords.c===c;
+      const isSel=selectedFireCell&&selectedFireCell.r===r&&selectedFireCell.c===c;
       let cls=`ccell ${qcls}`;
       let label='';
+      // show history but always allow clicking again
       if(st===2){cls+=' hit-direct';label='✕';}
       else if(st===3){cls+=' hit-partial';label='·';}
       else if(st===1){cls+=' hit-miss';label='○';}
-      else{cls+=' clickable';}
-      if(isFix&&!st){cls+=' fix-target';label='⊕';}
-      const bstyle=`width:${sz}px;height:${sz}px;${isQH?'border-bottom:2px solid rgba(0,255,136,0.25)':''};${isQV?'border-right:2px solid rgba(0,255,136,0.25)':''}`;
-      html+=`<div class="${cls}" style="${bstyle}" onclick="weapsFire(${r},${c})">${label}</div>`;
+      if(isFix){cls+=' fix-target';if(!label)label='⊕';}
+      if(isSel){cls+=' fix-target';label='◉';}
+      const bstyle=`width:${sz}px;height:${sz}px;${isQH?'border-bottom:2px solid rgba(0,255,136,0.25)':''}${isQV?';border-right:2px solid rgba(0,255,136,0.25)':''}`;
+      const click=clickable?`onclick="selectFireCell(${r},${c})"`:''
+      html+=`<div class="${cls}" style="${bstyle}" ${click}>${label}</div>`;
     }
     html+=`</div>`;
   }
@@ -943,10 +1049,52 @@ function buildTargetGrid(tg){
   return html;
 }
 
+function selectFireCell(r,c){
+  selectedFireCell={r,c};
+  G[myCrew].pendingFireCell=null;
+  G[myCrew].fireApproved=false;
+  renderStation();
+  // show request button
+  const body=document.getElementById('station-body');
+  // append request button after grid
+  const existing=document.getElementById('fire-request-btn');
+  if(!existing){
+    const btn=document.createElement('button');
+    btn.id='fire-request-btn';
+    btn.className='pri';
+    btn.style.cssText='width:100%;padding:10px;margin-top:8px';
+    btn.textContent='[ REQUEST CAPTAIN APPROVAL — ROW '+(r+1)+' COL '+(c+1)+' ]';
+    btn.onclick=()=>requestFire();
+    // find fire control panel and append
+    const panels=document.querySelectorAll('.panel');
+    if(panels.length) panels[panels.length-2].appendChild(btn);
+  } else {
+    existing.textContent='[ REQUEST CAPTAIN APPROVAL — ROW '+(r+1)+' COL '+(c+1)+' ]';
+    existing.onclick=()=>requestFire();
+  }
+}
+
+function requestFire(){
+  if(!selectedFireCell) return;
+  G[myCrew].pendingFireCell=selectedFireCell;
+  G[myCrew].fireApproved=false;
+  addLog(crewName()+' weapons requests fire at ROW '+(selectedFireCell.r+1)+' COL '+(selectedFireCell.c+1));
+  pushState();renderStation();
+}
+
+function confirmFire(){
+  const cr=G[myCrew];
+  if(!cr.pendingFireCell||!cr.fireApproved) return;
+  send({type:'fire_torpedo',room:roomCode,firingCrew:myCrew,row:cr.pendingFireCell.r,col:cr.pendingFireCell.c});
+  cr.pendingFireCell=null;cr.fireApproved=false;selectedFireCell=null;
+  markDone('weapons');
+}
+
 function startWeapChallenge(){genWeapPuzzle();renderStation();}
 
 function checkWeap(i){
   const q=curWeapPuzzle;const el=document.getElementById('wopt-'+i);
+  if(!q) return;
   if(i===q.ci){
     el.classList.add('ok');
     G[myCrew].charge=Math.min(100,G[myCrew].charge+25);
@@ -957,12 +1105,6 @@ function checkWeap(i){
     el.classList.add('no');
     setTimeout(()=>el&&el.classList.remove('no'),700);
   }
-}
-
-function weapsFire(r,c){
-  if(!G[myCrew].charge>=100||!G[myCrew].sonarFix) return;
-  send({type:'fire_torpedo',room:roomCode,firingCrew:myCrew,row:r,col:c});
-  markDone('weapons');
 }
 
 // ── FIREFIGHTER ───────────────────────────────────────────────────────────────
@@ -990,7 +1132,7 @@ function renderFirefighter(){
     const opts=[target,...wo.filter(x=>x!==target).slice(0,3)].sort(()=>Math.random()-0.5);
     cr.damage.puzzle={q:`CRITICAL: <span style="font-size:20px;color:var(--red)">${a} × ${b} = ?</span>`,opts:opts.map(String),ci:opts.indexOf(target)};
   }
-  return `<div class="panel" style="${hasDamage?'border-color:var(--red)':''}">
+  return miniSubGrid()+`<div class="panel" style="${hasDamage?'border-color:var(--red)':''}">
     <p class="pt">${hasDamage?'⚠ DAMAGE CONTROL':'Maintenance check'}</p>
     ${hasDamage?`
     <div class="fire-timer ${cr.damage.timeLeft<20?'urg':''}" id="ff-timer">TIME: ${cr.damage.timeLeft}s</div>
@@ -1001,14 +1143,27 @@ function renderFirefighter(){
     </div>`:active?`<p style="color:var(--text3);font-size:11px">Generating damage control puzzle...</p>`:
     `<p style="color:var(--text3);font-size:11px">Firefighter responding...</p>`}
     `:`
-    <p style="font-size:11px;color:var(--text3);margin-bottom:12px">Run routine maintenance check to keep systems operational.</p>
-    ${active&&!done?`<button class="pri" onclick="maintenanceDone()">[ MAINTENANCE COMPLETE ]</button>`:
+    <p style="font-size:11px;color:var(--text3);margin-bottom:12px">Routine maintenance check — solve to confirm systems operational.</p>
+    ${active&&!done?(() => {
+      if(!G[myCrew].maintenancePuzzle) G[myCrew].maintenancePuzzle=genMaintenancePuzzle();
+      const mp=G[myCrew].maintenancePuzzle;
+      return `<p style="font-size:13px;color:var(--text2);margin-bottom:6px;line-height:1.8">${mp.q}</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="maint-opts">
+        ${mp.opts.map((o,i)=>`<div class="eopt" id="maintopt-${i}" onclick="checkMaintenance(${i})">${o}</div>`).join('')}
+      </div>`;
+    })():
     done?`<p style="color:var(--green);font-size:12px">✓ MAINTENANCE DONE</p>`:
     `<p style="color:var(--text3);font-size:12px">STANDBY</p>`}`}
   </div>`;
 }
 
 function maintenanceDone(){markDone('firefighter');}
+
+function genMaintenancePuzzle(){
+  // simple puzzle for maintenance - rotate through first 3 types only
+  const idx=(G[myCrew].roundNum||1)%3;
+  return PUZZLES[idx]();
+}
 
 function checkFF(i){
   const cr=G[myCrew];
@@ -1026,7 +1181,20 @@ function checkFF(i){
   }
 }
 
-function startFireTimer(){
+function checkMaintenance(i){
+  const mp=G[myCrew].maintenancePuzzle;
+  if(!mp) return;
+  const el=document.getElementById('maintopt-'+i);
+  if(i===mp.ci){
+    if(el)el.classList.add('ok');
+    G[myCrew].maintenancePuzzle=null;
+    addLog(crewName()+' maintenance complete');
+    setTimeout(()=>markDone('firefighter'),400);
+  } else {
+    if(el)el.classList.add('no');
+    setTimeout(()=>el&&el.classList.remove('no'),700);
+  }
+}
   if(fireTimerInterval) clearInterval(fireTimerInterval);
   fireTimerInterval=setInterval(()=>{
     if(!G||!G[myCrew]||!G[myCrew].damage||G[myCrew].damage.fixed){clearInterval(fireTimerInterval);return;}
@@ -1066,8 +1234,8 @@ function renderComms(){
     {id:1,name:'ROW / COL HINT',icon:'🗺',desc:'1 accurate row + 1 false column (or vice versa). Enemy sonar notified.',charge:sel===1?charge:0},
     {id:2,name:'GO SILENT',icon:'🔇',desc:'Next captain move won\'t broadcast heading. Enemy sonar told you went silent.',charge:sel===2?charge:0}
   ];
-  return `<div class="panel">
-    <p class="pt">Intel options — charges 10% per round</p>
+  return miniSubGrid()+`<div class="panel">
+    <p class="pt">Intel options — charges 20% per round</p>
     <p style="font-size:11px;color:var(--text3);margin-bottom:10px;letter-spacing:0.03em">Select one option to charge. Switching option does NOT reset charge. Deploy at 100%.</p>
     ${opts.map(o=>`
     <div class="copt ${sel===o.id?'sel':''} ${o.charge>=100?'full':''}" onclick="${active?`selectComms(${o.id})`:''}">
@@ -1153,7 +1321,7 @@ function advanceTurn(){
     G[myCrew].currentTurnRole='captain';
     G[myCrew].roundDone={};
     G[myCrew].roundNum=(G[myCrew].roundNum||1)+1;
-    G[myCrew].commsCharge=Math.min(100,(G[myCrew].commsCharge||0)+10);
+    G[myCrew].commsCharge=Math.min(100,(G[myCrew].commsCharge||0)+20);
     curEngPuzzle=null;curWeapPuzzle=null;
     addLog('--- ROUND '+G[myCrew].roundNum+' — '+crewName()+' ---');
   } else {
@@ -1181,8 +1349,21 @@ function hostCreate(){
   const nameB=document.getElementById('h-nameB').value||'Deep Six';
   const size=parseInt(document.getElementById('h-grid').value);
   const hp=parseInt(document.getElementById('h-hp').value);
-  connectWS(()=>send({type:'host_create',settings:{nameA,nameB,size,hp}}));
+  const hostJoins=document.getElementById('h-join')?.checked;
+  const hostName=(document.getElementById('h-name')?.value||'').trim();
+  const hostRole=document.getElementById('h-role')?.value||'random';
+  if(hostJoins&&!hostName){toast('Enter your name to join.');return;}
+  if(hostJoins) myName=hostName;
+  connectWS(()=>{
+    send({type:'host_create',settings:{nameA,nameB,size,hp,hostJoins,hostName,hostRole}});
+  });
 }
+
+document.addEventListener('DOMContentLoaded',()=>{
+  const cb=document.getElementById('h-join');
+  const fields=document.getElementById('h-join-fields');
+  if(cb&&fields) cb.addEventListener('change',()=>{fields.style.display=cb.checked?'block':'none';});
+});
 
 function copyCode(){navigator.clipboard.writeText(roomCode).then(()=>toast('Copied!'));}
 function startGame(){send({type:'start_game',room:roomCode});}

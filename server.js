@@ -67,10 +67,11 @@ function makeCrew(hp, pos) {
   return {
     hp, pos: {...pos}, trail: [{...pos}],
     charge: 0, sonarFix: false, sonarCoords: null,
-    weaponsArmed: false, fireApproved: false,
+    weaponsArmed: false, fireApproved: false, pendingFireCell: null,
     decoyUsed: false, goSilent: false,
     commsCharge: 0, commsOption: null, commsActive: null,
-    damage: null, surfacing: false, surfaceChallenges: {},
+    damage: null, maintenancePuzzle: null,
+    surfacing: false, surfaceChallenges: {},
     currentTurnRole: 'captain', roundNum: 1,
     roundDone: {}
   };
@@ -107,17 +108,42 @@ wss.on('connection', (ws) => {
     if (type === 'start_game') {
       const r = rooms[room];
       if (!r || ws !== r.hostWs) return;
-      const names = r.lobby.map(p => p.name);
+      const s = r.settings;
+      let names = r.lobby.map(p => p.name);
+      // host opts in as player
+      if (s.hostJoins && s.hostName) names = [s.hostName, ...names];
       if (names.length < 2) { ws.send(JSON.stringify({ type: 'error', msg: 'Need at least 2 players.' })); return; }
       const shuffled = [...names].sort(() => Math.random() - 0.5);
       const half = Math.ceil(shuffled.length / 2);
-      const s = r.settings;
+      // role assignment respecting host preference
+      function assignWithPref(crew) {
+        if (!crew.length) return [];
+        const supporting = ['engineer','sonar','weapons','firefighter','comms'].sort(() => Math.random() - 0.5);
+        const sc = [...crew].sort(() => Math.random() - 0.5);
+        const hostPref = s.hostJoins && s.hostName && s.hostRole !== 'random' ? s.hostRole : null;
+        const hostIdx = hostPref ? sc.indexOf(s.hostName) : -1;
+        // move host to captain slot if they want captain
+        if (hostIdx > 0 && hostPref === 'captain') [sc[0], sc[hostIdx]] = [sc[hostIdx], sc[0]];
+        const stacks = sc.map(() => []);
+        stacks[0].push('captain');
+        // if host wants a specific supporting role, assign it directly
+        const suppToAssign = [...supporting];
+        if (hostIdx >= 0 && hostPref && hostPref !== 'captain' && hostPref !== 'random') {
+          const realIdx = sc.indexOf(s.hostName);
+          if (realIdx > 0) { stacks[realIdx].push(hostPref); suppToAssign.splice(suppToAssign.indexOf(hostPref), 1); }
+        }
+        suppToAssign.forEach((role, i) => { stacks[(i + 1) % sc.length].push(role); });
+        return sc.map((name, i) => ({
+          name, roles: stacks[i].sort((a,b) => ROLE_ORDER.indexOf(a) - ROLE_ORDER.indexOf(b)),
+          isShadow: stacks[i].length === 0
+        }));
+      }
       const posA = randPos(s.size), posB = randPos(s.size);
       const state = {
         size: s.size, nameA: s.nameA, nameB: s.nameB, maxHp: s.hp,
         A: makeCrew(s.hp, posA),
         B: makeCrew(s.hp, posB),
-        players: { A: assignRoles(shuffled.slice(0, half)), B: assignRoles(shuffled.slice(half)) },
+        players: { A: assignWithPref(shuffled.slice(0, half)), B: assignWithPref(shuffled.slice(half)) },
         log: ['Mission commenced. Find and sink the enemy.'],
         targetGridA: makeGrid(s.size),
         targetGridB: makeGrid(s.size)
