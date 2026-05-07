@@ -32,32 +32,19 @@ function broadcast(code, msg, excludeWs) {
   rooms[code].clients.forEach(c => { if (c !== excludeWs && c.readyState === 1) c.send(data); });
 }
 
-// Assign roles to a crew fairly:
-// - Captain is always guaranteed to exactly one person
-// - Remaining 6 roles are shuffled and distributed round-robin
-// - Each player gets as equal a number of roles as possible
-// - Returns: [{name, roles:[...]}]
+// 6 roles in fixed turn order
+const ROLE_ORDER = ['captain','engineer','sonar','weapons','firefighter','comms'];
+
+// Assign roles fairly - captain always guaranteed, others distributed evenly
 function assignRoles(crew) {
   if (crew.length === 0) return [];
-
-  const supporting = ['navigator','engineer','weapons','sonar','damage','decoy']
-    .sort(() => Math.random() - 0.5);
-
-  // Shuffle crew so captain doesn't always go to first joiner
+  const supporting = ['engineer','sonar','weapons','firefighter','comms'].sort(() => Math.random() - 0.5);
   const shuffled = [...crew].sort(() => Math.random() - 0.5);
   const stacks = shuffled.map(() => []);
-
-  // Slot 0 gets captain
   stacks[0].push('captain');
-
-  // Distribute supporting roles round-robin starting at slot 1
-  // so slot 0 (captain) gets the last extra role if uneven, not the first
-  supporting.forEach((role, i) => {
-    const slot = (i + 1) % shuffled.length;
-    stacks[slot].push(role);
-  });
-
-  return shuffled.map((name, i) => ({ name, roles: stacks[i] }));
+  supporting.forEach((role, i) => { stacks[(i + 1) % shuffled.length].push(role); });
+  // Shadow players: if more players than roles, mark extras as shadows
+  return shuffled.map((name, i) => ({ name, roles: stacks[i], isShadow: stacks[i].length === 0 }));
 }
 
 wss.on('connection', (ws) => {
@@ -78,7 +65,7 @@ wss.on('connection', (ws) => {
 
     if (type === 'join') {
       const r = rooms[room];
-      if (!r) { ws.send(JSON.stringify({ type: 'error', msg: 'Room not found. Check the code.' })); return; }
+      if (!r) { ws.send(JSON.stringify({ type: 'error', msg: 'Room not found.' })); return; }
       if (r.state) { ws.send(JSON.stringify({ type: 'error', msg: 'Game already started.' })); return; }
       const name = (msg.name || 'Player').trim();
       r.lobby.push({ name });
@@ -93,12 +80,8 @@ wss.on('connection', (ws) => {
       const r = rooms[room];
       if (!r || ws !== r.hostWs) return;
       const names = r.lobby.map(p => p.name);
-      if (names.length < 2) {
-        ws.send(JSON.stringify({ type: 'error', msg: 'Need at least 2 players to start.' }));
-        return;
-      }
+      if (names.length < 2) { ws.send(JSON.stringify({ type: 'error', msg: 'Need at least 2 players.' })); return; }
 
-      // Shuffle and split into two balanced crews
       const shuffled = [...names].sort(() => Math.random() - 0.5);
       const half = Math.ceil(shuffled.length / 2);
       const crewA = shuffled.slice(0, half);
@@ -109,16 +92,26 @@ wss.on('connection', (ws) => {
       function randPos() { return { r: Math.floor(Math.random()*size), c: Math.floor(Math.random()*size) }; }
       function makeGrid() { return Array(size).fill(null).map(() => Array(size).fill(0)); }
 
+      function makeCrew(hp, pos) {
+        return {
+          hp, maxHp: s.hp, pos: {...pos}, trail: [{...pos}],
+          charge: 0, sonarFix: false, decoyUsed: false,
+          targetHits: makeGrid(), fireApproved: false, weaponsArmed: false,
+          goSilent: false, commsCharge: 0, commsOption: null,
+          damage: null, // active fire/damage event
+          currentTurnRole: 'captain', // fixed turn order
+          roundNum: 1
+        };
+      }
+
       const posA = randPos(), posB = randPos();
       const state = {
         size, nameA: s.nameA, nameB: s.nameB, maxHp: s.hp,
-        turn: 1, phase: 'move', activeCrew: 'A',
-        A: { hp: s.hp, pos: {...posA}, trail: [{...posA}], charge: 0, sonarFix: false, decoyUsed: false, targetHits: makeGrid(), fireApproved: false },
-        B: { hp: s.hp, pos: {...posB}, trail: [{...posB}], charge: 0, sonarFix: false, decoyUsed: false, targetHits: makeGrid(), fireApproved: false },
+        A: makeCrew(s.hp, posA),
+        B: makeCrew(s.hp, posB),
         players: { A: assignRoles(crewA), B: assignRoles(crewB) },
-        rolesReady: { A: {}, B: {} },
-        log: ['Game started! ' + s.nameA + ' vs ' + s.nameB + '. Good luck.'],
-        lastHeading: null, lastHeadingCrew: null, engineQ: null
+        log: ['Mission commenced. Find and sink the enemy.'],
+        lastHeadingCrew: null
       };
 
       r.state = state;
@@ -135,25 +128,33 @@ wss.on('connection', (ws) => {
 
     if (type === 'sonar_ping') {
       if (!rooms[room]) return;
-      broadcast(room, { type: 'sonar_ping', heading: msg.heading, crew: msg.crew }, ws);
+      broadcast(room, { type: 'sonar_ping', heading: msg.heading, crew: msg.crew, silent: msg.silent }, ws);
       return;
     }
 
-    if (type === 'ping') {
-      ws.send(JSON.stringify({ type: 'pong' }));
+    if (type === 'sector_ping') {
+      if (!rooms[room]) return;
+      // notify enemy sonar that sector ping was used
+      broadcast(room, { type: 'sector_ping_alert', crew: msg.crew }, ws);
       return;
     }
+
+    if (type === 'damage_alert') {
+      if (!rooms[room]) return;
+      broadcastAll(room, { type: 'damage_alert', crew: msg.crew });
+      return;
+    }
+
+    if (type === 'ping') { ws.send(JSON.stringify({ type: 'pong' })); return; }
   });
 
   ws.on('close', () => {
     if (!currentRoom || !rooms[currentRoom]) return;
     rooms[currentRoom].clients.delete(ws);
     if (rooms[currentRoom].clients.size === 0) {
-      setTimeout(() => {
-        if (rooms[currentRoom] && rooms[currentRoom].clients.size === 0) delete rooms[currentRoom];
-      }, 30 * 60 * 1000);
+      setTimeout(() => { if (rooms[currentRoom] && rooms[currentRoom].clients.size === 0) delete rooms[currentRoom]; }, 30 * 60 * 1000);
     }
   });
 });
 
-server.listen(PORT, () => console.log('Deep Sonar running on port ' + PORT));
+server.listen(PORT, () => console.log('Deep Sonar on port ' + PORT));
