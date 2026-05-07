@@ -1287,9 +1287,7 @@ function fireBlockBanner(){
 }
 
 function genFFDamagePuzzle(){
-  // random puzzle from all 5 types for damage control
-  var idx=Math.floor(Math.random()*5);
-  return PUZZLES[idx]();
+  return nextPuzzle();
 }
 
 function renderFirefighter(){
