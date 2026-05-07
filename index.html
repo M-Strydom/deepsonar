@@ -182,16 +182,6 @@ select option{background:var(--bg3)}
       <button onclick="show('s-join')" style="padding:14px">[ JOIN GAME ]</button>
     </div>
   </div>
-  <div class="panel">
-    <p class="pt">Mission briefing</p>
-    <p style="font-size:11px;color:var(--text3);line-height:2.2;letter-spacing:0.04em">
-      01 — Host creates game, shares 5-letter room code<br>
-      02 — Crew joins, teams &amp; roles assigned randomly<br>
-      03 — Fixed turn order per crew: Captain → Engineer → Sonar → Weapons → Firefighter → Comms<br>
-      04 — Each crew operates independently in Zoom breakout<br>
-      05 — Find enemy sub and sink it
-    </p>
-  </div>
 </div>
 
 <!-- HOST -->
@@ -1036,7 +1026,6 @@ function checkFF(i){
   }
 }
 
-let fireTimerInterval=null;
 function startFireTimer(){
   if(fireTimerInterval) clearInterval(fireTimerInterval);
   fireTimerInterval=setInterval(()=>{
