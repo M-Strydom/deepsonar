@@ -782,8 +782,8 @@ function cellClick(r,c){
 
 // ── CAPTAIN ─────────────────────────────────────────────────────────────────
 function renderCaptain(){
-  // fire blocks all non-firefighter stations
-  if(hasFire()&&!G[myCrew].damage.fixed){
+  // fire blocks all non-firefighter stations (only if not already done this turn)
+  if(hasFire()&&!G[myCrew].damage.fixed&&!isDone('captain')){
     return miniSubGrid()+fireBlockBanner();
   }
   var cr=G[myCrew];
@@ -880,8 +880,8 @@ function renderPuzzleOpts(q,prefix,checkFn){
 
 // ── ENGINEER ────────────────────────────────────────────────────────────────
 function renderEngineer(){
-  // fire blocks all non-firefighter stations
-  if(hasFire()&&!G[myCrew].damage.fixed){
+  // fire blocks all non-firefighter stations (only if not already done this turn)
+  if(hasFire()&&!G[myCrew].damage.fixed&&!isDone('engineer')){
     return miniSubGrid()+fireBlockBanner();
   }
   var cr=G[myCrew];
@@ -924,8 +924,8 @@ function checkEngSurf(i){
 
 // ── SONAR ───────────────────────────────────────────────────────────────────
 function renderSonar(){
-  // fire blocks all non-firefighter stations
-  if(hasFire()&&!G[myCrew].damage.fixed){
+  // fire blocks all non-firefighter stations (only if not already done this turn)
+  if(hasFire()&&!G[myCrew].damage.fixed&&!isDone('sonar')){
     return miniSubGrid()+fireBlockBanner();
   }
   var cr=G[myCrew];
@@ -964,8 +964,8 @@ function checkSonarSurf(i){
 
 // ── WEAPONS ─────────────────────────────────────────────────────────────────
 function renderWeapons(){
-  // fire blocks all non-firefighter stations
-  if(hasFire()&&!G[myCrew].damage.fixed){
+  // fire blocks all non-firefighter stations (only if not already done this turn)
+  if(hasFire()&&!G[myCrew].damage.fixed&&!isDone('weapons')){
     return miniSubGrid()+fireBlockBanner();
   }
   var cr=G[myCrew];
@@ -1134,9 +1134,8 @@ function renderFirefighter(){
   if(fire){
     // ensure 3 puzzles exist
     if(!cr.damage.puzzles) cr.damage.puzzles=[];
-    if(active){
-      while(cr.damage.puzzles.length<3) cr.damage.puzzles.push(genFFDamagePuzzle());
-    }
+    // always populate puzzles as soon as damage exists, regardless of whose turn it is
+    while(cr.damage.puzzles.length<3) cr.damage.puzzles.push(genFFDamagePuzzle());
     var solved=cr.damage.solved||0;
     var timerCls='fire-timer'+(cr.damage.timeLeft<20?' urg':'');
     var body='<div class="'+timerCls+'" id="ff-timer">⏱ '+cr.damage.timeLeft+'s</div>'
@@ -1236,8 +1235,8 @@ function startFireTimer(){
 
 // ── COMMS ───────────────────────────────────────────────────────────────────
 function renderComms(){
-  // fire blocks all non-firefighter stations
-  if(hasFire()&&!G[myCrew].damage.fixed){
+  // fire blocks all non-firefighter stations (only if not already done this turn)
+  if(hasFire()&&!G[myCrew].damage.fixed&&!isDone('comms')){
     return miniSubGrid()+fireBlockBanner();
   }
   var cr=G[myCrew];
