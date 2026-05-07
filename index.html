@@ -1035,13 +1035,6 @@ function genEngPuzzle(){curEngPuzzle=nextPuzzle();}
 function genWeapPuzzle(){curWeapPuzzle=nextPuzzle();}
 function genMaintenancePuzzle(){return nextPuzzle();}
 function genFFDamagePuzzle(){return nextPuzzle();}
-function genEngPuzzle(){curEngPuzzle=nextPuzzle();}
-function genWeapPuzzle(){curWeapPuzzle=nextPuzzle();}
-function genMaintenancePuzzle(){return nextPuzzle();}
-function genFFDamagePuzzle(){return nextPuzzle();}
-function genEngPuzzle(){var idx=((G[myCrew].roundNum||1)-1)%5;curEngPuzzle=PUZZLES[idx]();}
-function genWeapPuzzle(){var idx=((G[myCrew].roundNum||1))%5;curWeapPuzzle=PUZZLES[idx]();}
-function genMaintenancePuzzle(){var idx=(G[myCrew].roundNum||1)%3;return PUZZLES[idx]();}
 
 function renderPuzzleOpts(q,prefix,checkFn){
   return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="'+prefix+'-opts">'
