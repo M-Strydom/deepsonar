@@ -303,59 +303,55 @@ select option{background:var(--bg3)}
 </div>
 
 <script>
-// ── CONSTANTS ────────────────────────────────────────────────────────────────
+// ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ROLE_ORDER=['captain','engineer','sonar','weapons','firefighter','comms'];
 const RD={
-  captain:  {name:'Captain',       icon:'⚓',desc:'Navigate the sub. Your heading auto-notifies enemy sonar. Surface to reset trail.'},
-  engineer: {name:'Engineer',      icon:'⚙',desc:'Solve a rotating system puzzle each turn. Fail = no torpedo charge this round.'},
-  sonar:    {name:'Sonar Operator',icon:'📡',desc:'Track enemy headings. Mark fix on your grid. Coords sent to weapons.'},
-  weapons:  {name:'Weapons',       icon:'🎯',desc:'Complete challenges to charge torpedo (max 25%/round). Fire when sonar fix confirmed + 100% charge.'},
-  firefighter:{name:'Firefighter', icon:'🧯',desc:'Maintenance check each round. If hit: 60s to contain damage or hull takes extra damage.'},
-  comms:    {name:'Comms Officer', icon:'📻',desc:'Charge one of 3 intel options (10%/round). Sector ping, row/col hint, or go silent.'}
+  captain:   {name:'Captain',        icon:'⚓', desc:'Navigate the sub. Call headings. Approve torpedo fire. Surface to reset trail.'},
+  engineer:  {name:'Engineer',       icon:'⚙', desc:'Solve a rotating system puzzle each turn. Fail = no torpedo charge this round.'},
+  sonar:     {name:'Sonar Operator', icon:'📡',desc:'Track enemy headings on your private grid. Confirm fix to unlock weapons.'},
+  weapons:   {name:'Weapons Officer',icon:'🎯',desc:'Solve challenges to charge torpedo (max +25%/round). Select target, request captain approval, then fire.'},
+  firefighter:{name:'Firefighter',   icon:'🧯',desc:'Solve maintenance puzzle every turn. When hit: 60s to contain damage or hull takes extra damage.'},
+  comms:     {name:'Comms Officer',  icon:'📻',desc:'Charge one of 3 intel options at 20%/round. Sector ping, row/col hint, or go silent.'}
 };
 
-// ── STATE ────────────────────────────────────────────────────────────────────
+// ── STATE ───────────────────────────────────────────────────────────────────
 let WS=null,G=null,myRoles=[],myCrew=null,myName=null,roomCode=null;
 let sonarNotes=[],sonarMarks={},sonarFixCell=null;
 let shadowRole=null,curEngPuzzle=null,curWeapPuzzle=null;
 let fireTimerInterval=null,audioCtx=null,ambientTimer=null;
 let selectedFireCell=null;
-let ttsVoice=null;
 
-// ── AUDIO ────────────────────────────────────────────────────────────────────
+// ── AUDIO ───────────────────────────────────────────────────────────────────
 function getAudio(){
   if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
   if(audioCtx.state==='suspended') audioCtx.resume();
   return audioCtx;
 }
-
 function playDeepPing(){
   const c=getAudio(),t=c.currentTime;
-  [{d:0,v:0.18},{d:0.7,v:0.06}].forEach(({d,v})=>{
-    const osc=c.createOscillator(),g=c.createGain();
+  [{d:0,v:0.18},{d:0.7,v:0.06}].forEach(function(p){
+    var osc=c.createOscillator(),g=c.createGain();
     osc.connect(g);g.connect(c.destination);
     osc.type='sine';
-    osc.frequency.setValueAtTime(320,t+d);
-    osc.frequency.exponentialRampToValueAtTime(260,t+d+0.4);
-    g.gain.setValueAtTime(0,t+d);
-    g.gain.linearRampToValueAtTime(v,t+d+0.02);
-    g.gain.exponentialRampToValueAtTime(0.001,t+d+0.9);
-    osc.start(t+d);osc.stop(t+d+1.0);
+    osc.frequency.setValueAtTime(320,t+p.d);
+    osc.frequency.exponentialRampToValueAtTime(260,t+p.d+0.4);
+    g.gain.setValueAtTime(0,t+p.d);
+    g.gain.linearRampToValueAtTime(p.v,t+p.d+0.02);
+    g.gain.exponentialRampToValueAtTime(0.001,t+p.d+0.9);
+    osc.start(t+p.d);osc.stop(t+p.d+1.0);
   });
 }
-
 function scheduleAmbient(){
   if(ambientTimer) clearTimeout(ambientTimer);
   function next(){playDeepPing();ambientTimer=setTimeout(next,30000);}
   ambientTimer=setTimeout(next,30000);
 }
-
 function playKlaxon(){
-  const c=getAudio(),t=c.currentTime;
-  for(let i=0;i<8;i++){
-    const osc=c.createOscillator(),g=c.createGain(),dist=c.createWaveShaper();
-    const curve=new Float32Array(256);
-    for(let j=0;j<256;j++){const x=j*2/256-1;curve[j]=x*(Math.abs(x)+0.3)/(Math.abs(x)*1.3+0.3);}
+  var c=getAudio(),t=c.currentTime;
+  for(var i=0;i<8;i++){
+    var osc=c.createOscillator(),g=c.createGain(),dist=c.createWaveShaper();
+    var curve=new Float32Array(256);
+    for(var j=0;j<256;j++){var x=j*2/256-1;curve[j]=x*(Math.abs(x)+0.3)/(Math.abs(x)*1.3+0.3);}
     dist.curve=curve;
     osc.connect(dist);dist.connect(g);g.connect(c.destination);
     osc.type='sawtooth';
@@ -368,838 +364,744 @@ function playKlaxon(){
     osc.start(t+i*0.6);osc.stop(t+i*0.6+0.5);
   }
 }
-
 function playAlertPing(){
-  const c=getAudio(),t=c.currentTime;
-  const osc=c.createOscillator(),g=c.createGain();
+  var c=getAudio(),t=c.currentTime;
+  var osc=c.createOscillator(),g=c.createGain();
   osc.connect(g);g.connect(c.destination);
   osc.type='sine';
   osc.frequency.setValueAtTime(1200,t);
   osc.frequency.exponentialRampToValueAtTime(600,t+0.4);
-  g.gain.setValueAtTime(0,t);
-  g.gain.linearRampToValueAtTime(0.14,t+0.02);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.14,t+0.02);
   g.gain.exponentialRampToValueAtTime(0.001,t+0.7);
   osc.start(t);osc.stop(t+0.8);
 }
-
 function speak(text){
   if(!window.speechSynthesis) return;
-  const u=new SpeechSynthesisUtterance(text);
+  var u=new SpeechSynthesisUtterance(text);
   u.pitch=1.1;u.rate=0.9;
-  // try to get a female voice
-  const voices=window.speechSynthesis.getVoices();
-  const female=voices.find(v=>/female|samantha|victoria|karen|moira|fiona|tessa|veena|zira/i.test(v.name));
+  var voices=window.speechSynthesis.getVoices();
+  var female=voices.find(function(v){return /female|samantha|victoria|karen|moira|fiona|tessa|veena|zira/i.test(v.name);});
   if(female) u.voice=female;
   window.speechSynthesis.speak(u);
 }
 
-// ── WEBSOCKET ────────────────────────────────────────────────────────────────
+// ── WEBSOCKET ───────────────────────────────────────────────────────────────
 function wsUrl(){
-  const p=location.protocol==='https:'?'wss':'ws';
+  var p=location.protocol==='https:'?'wss':'ws';
   if(!location.host) throw new Error('Use Railway URL');
   return p+'://'+location.host;
 }
-
 function connectWS(cb){
-  let url;try{url=wsUrl();}catch(e){toast('Open from your Railway URL.');return;}
+  var url;try{url=wsUrl();}catch(e){toast('Open from your Railway URL.');return;}
   WS=new WebSocket(url);
-  WS.onopen=()=>{if(cb)cb();};
-  WS.onclose=()=>setTimeout(()=>connectWS(),3000);
-  WS.onmessage=e=>handleMsg(JSON.parse(e.data));
+  WS.onopen=function(){if(cb)cb();};
+  WS.onclose=function(){setTimeout(function(){connectWS();},3000);};
+  WS.onmessage=function(e){handleMsg(JSON.parse(e.data));};
 }
-
 function send(obj){if(WS&&WS.readyState===1)WS.send(JSON.stringify(obj));}
 function pushState(){send({type:'state_update',room:roomCode,state:G});}
 
+// ── MESSAGE HANDLER ─────────────────────────────────────────────────────────
 function handleMsg(msg){
   if(msg.type==='hosted'){roomCode=msg.code;document.getElementById('hl-code').textContent=msg.code;show('s-host-lobby');}
   if(msg.type==='joined'){myName=msg.name;show('s-player-lobby');document.getElementById('pl-title').textContent='ABOARD — '+msg.name.toUpperCase();}
   if(msg.type==='lobby_update') renderLobby(msg.lobby);
-  if(msg.type==='game_started'){
-    G=msg.state;
-    // if host joined as player, their name comes from the game_started message
-    if(!myName&&msg.hostName) myName=msg.hostName;
-    findMyRole();showRoleReveal();
-  }
-  if(msg.type==='state_update'){G=msg.state;if(onStation()) renderStation();}
+  if(msg.type==='game_started'){G=msg.state;if(!myName&&msg.hostName)myName=msg.hostName;findMyRole();showRoleReveal();}
+  if(msg.type==='state_update'){G=msg.state;if(onStation())renderStation();}
 
   if(msg.type==='torpedo_result'){
     G=msg.state;
-    const mine=msg.firingCrew===myCrew;
-    const ov=document.getElementById('result-ov');
-    const rt=document.getElementById('result-txt');
-    const rs=document.getElementById('result-sub');
+    var mine=msg.firingCrew===myCrew;
+    var ov=document.getElementById('result-ov');
+    var rt=document.getElementById('result-txt');
+    var rs=document.getElementById('result-sub');
+    rt.style.animation='none';rs.style.animation='none';
     if(msg.result==='direct'){
+      rt.textContent='DIRECT HIT';rt.style.color='var(--red)';
+      rs.textContent='-2 HULL DAMAGE';rs.style.color='var(--red)';
       if(mine){
-        rt.textContent='DIRECT HIT';rt.style.color='var(--red)';
-        rs.textContent='-2 HULL DAMAGE';rs.style.color='var(--red)';
-        ov.classList.add('show');
-        setTimeout(()=>ov.classList.remove('show'),3200);
         speak('Direct hit');
+        ov.classList.add('show');setTimeout(function(){ov.classList.remove('show');},3200);
       } else {
-        playKlaxon();triggerDamageFlash();
-        speak('Brace for impact');
-        rt.textContent='HULL BREACH';rt.style.color='var(--red)';
-        rs.textContent='-2 HULL DAMAGE';rs.style.color='var(--red)';
-        ov.classList.add('show');
-        setTimeout(()=>ov.classList.remove('show'),3200);
+        playKlaxon();triggerDamageFlash();speak('Brace for impact');
+        ov.classList.add('show');setTimeout(function(){ov.classList.remove('show');},3200);
       }
     } else if(msg.result==='partial'){
+      rt.textContent='PARTIAL DAMAGE INFLICTED';rt.style.color='var(--amber)';
+      rs.textContent='-1 HULL DAMAGE';rs.style.color='var(--amber)';
       if(mine){
-        rt.textContent='PARTIAL DAMAGE INFLICTED';rt.style.color='var(--amber)';
-        rs.textContent='-1 HULL DAMAGE';rs.style.color='var(--amber)';
-        ov.classList.add('show');
-        setTimeout(()=>ov.classList.remove('show'),3200);
         speak('Partial damage inflicted');
+        ov.classList.add('show');setTimeout(function(){ov.classList.remove('show');},3200);
       } else {
-        playKlaxon();triggerDamageFlash();
-        speak('Brace for impact');
-        rt.textContent='HULL DAMAGE';rt.style.color='var(--amber)';
-        rs.textContent='-1 HULL DAMAGE';rs.style.color='var(--amber)';
-        ov.classList.add('show');
-        setTimeout(()=>ov.classList.remove('show'),3200);
+        playKlaxon();triggerDamageFlash();speak('Brace for impact');
+        ov.classList.add('show');setTimeout(function(){ov.classList.remove('show');},3200);
       }
     } else {
-      // miss — only firing sub sees anything
       if(mine){
         rt.textContent='NO CONTACT';rt.style.color='var(--text3)';
         rs.textContent='TORPEDO MISSED';rs.style.color='var(--text3)';
-        ov.classList.add('show');
-        setTimeout(()=>ov.classList.remove('show'),3200);
         speak('No contact');
+        ov.classList.add('show');setTimeout(function(){ov.classList.remove('show');},3200);
       }
-      // enemy sees nothing
     }
     if(msg.won){
-      setTimeout(()=>{
+      setTimeout(function(){
         document.getElementById('win-title').textContent=msg.winnerName.toUpperCase()+' WINS';
         document.getElementById('win-sub').textContent=msg.loserName.toUpperCase()+' HAS BEEN SUNK';
         show('s-win');
       },3400);
     }
-    if(onStation()) renderStation();
+    if(onStation())renderStation();
   }
 
   if(msg.type==='sonar_ping'){
-    if(myRoles.includes('sonar')&&msg.crew!==myCrew){
+    if(myRoles.indexOf('sonar')>=0&&msg.crew!==myCrew){
       if(msg.silent){
         showSectOverlay('🔇','ENEMY HAS GONE SILENT');
-        sonarNotes.push({r:crewRound(),t:'[SILENT RUN — no heading broadcast]'});
+        sonarNotes.push({r:crewRound(),t:'[SILENT RUN — no heading]'});
       } else {
         triggerPingOverlay(msg.heading);
         sonarNotes.push({r:crewRound(),t:'Heading: '+msg.heading});
       }
-      if(onStation()) renderStation();
+      if(onStation())renderStation();
     }
   }
   if(msg.type==='surface_alert'){
-    if(myRoles.includes('sonar')&&msg.crew!==myCrew){
+    if(myRoles.indexOf('sonar')>=0&&msg.crew!==myCrew){
       showSectOverlay(msg.sector,'ENEMY SURFACED IN SECTOR '+msg.sector);
       sonarNotes.push({r:crewRound(),t:'[ENEMY SURFACED — Sector '+msg.sector+']'});
-      if(onStation()) renderStation();
+      if(onStation())renderStation();
     }
   }
   if(msg.type==='sector_ping_alert'){
-    if(myRoles.includes('sonar')&&msg.crew!==myCrew){
+    if(myRoles.indexOf('sonar')>=0&&msg.crew!==myCrew){
       showSectOverlay('!','SECTOR PING DETECTED');
-      sonarNotes.push({r:crewRound(),t:'[SECTOR PING by enemy detected]'});
-      if(onStation()) renderStation();
+      sonarNotes.push({r:crewRound(),t:'[SECTOR PING by enemy]'});
+      if(onStation())renderStation();
     }
   }
   if(msg.type==='damage_alert'){
     if(msg.crew===myCrew){triggerDamageFlash();if(fireTimerInterval)clearInterval(fireTimerInterval);startFireTimer();}
   }
-  if(msg.type==='error'){const e=document.getElementById('jerr');if(e){e.textContent=msg.msg;e.style.display='block';}toast(msg.msg);}
+  if(msg.type==='error'){
+    var e=document.getElementById('jerr');
+    if(e){e.textContent=msg.msg;e.style.display='block';}
+    toast(msg.msg);
+  }
 }
 
-// ── UI HELPERS ───────────────────────────────────────────────────────────────
+// ── UI ──────────────────────────────────────────────────────────────────────
 function show(id){
-  document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('.scr').forEach(function(s){s.classList.remove('on');});
   document.getElementById(id).classList.add('on');
   getAudio();scheduleAmbient();
 }
 function onStation(){return document.getElementById('s-station').classList.contains('on');}
-function toast(msg,dur=2800){const e=document.getElementById('toast');e.textContent=msg;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),dur);}
-
+function toast(msg,dur){
+  dur=dur||2800;
+  var e=document.getElementById('toast');e.textContent=msg;e.classList.add('show');
+  setTimeout(function(){e.classList.remove('show');},dur);
+}
 function triggerPingOverlay(dir){
-  const arr={N:'↑',S:'↓',W:'←',E:'→'};
-  const ov=document.getElementById('ping-ov');
-  document.getElementById('ping-arr').textContent=arr[dir]||dir;
+  var arrows={N:'↑',S:'↓',W:'←',E:'→'};
+  var ov=document.getElementById('ping-ov');
+  document.getElementById('ping-arr').textContent=arrows[dir]||dir;
   document.getElementById('ping-lbl').textContent='ENEMY HEADING: '+dir;
-  document.getElementById('ping-arr').style.animation='none';
-  document.getElementById('ping-lbl').style.animation='none';
   ov.classList.add('show');
-  setTimeout(()=>{document.getElementById('ping-arr').style.animation='pf 2.5s forwards';document.getElementById('ping-lbl').style.animation='pf 2.5s forwards';},30);
-  setTimeout(()=>ov.classList.remove('show'),2800);
+  setTimeout(function(){ov.classList.remove('show');},2800);
   playAlertPing();
 }
-
 function showSectOverlay(big,text){
-  const ov=document.getElementById('sect-ov');
+  var ov=document.getElementById('sect-ov');
   document.getElementById('sect-big').textContent=big;
   document.getElementById('sect-lbl').textContent=text;
-  document.getElementById('sect-big').style.animation='none';
-  document.getElementById('sect-lbl').style.animation='none';
   ov.classList.add('show');
-  setTimeout(()=>{document.getElementById('sect-big').style.animation='pf 3s forwards';document.getElementById('sect-lbl').style.animation='pf 3s forwards';},30);
-  setTimeout(()=>ov.classList.remove('show'),3300);
+  setTimeout(function(){ov.classList.remove('show');},3300);
 }
-
 function triggerDamageFlash(){
   playKlaxon();
   document.body.classList.remove('damaged');
   void document.body.offsetWidth;
   document.body.classList.add('damaged');
-  setTimeout(()=>document.body.classList.remove('damaged'),5000);
+  setTimeout(function(){document.body.classList.remove('damaged');},5000);
 }
-
 function setOrders(on){document.getElementById('orders').classList.toggle('on',on);}
 
-// ── LOBBY ────────────────────────────────────────────────────────────────────
+// ── LOBBY ───────────────────────────────────────────────────────────────────
 function renderLobby(lobby){
-  ['hl','pl'].forEach(p=>{
-    const el=document.getElementById(p+'-players');
-    const cnt=document.getElementById(p+'-count');
-    const emp=document.getElementById(p+'-empty');
+  ['hl','pl'].forEach(function(p){
+    var el=document.getElementById(p+'-players');
+    var cnt=document.getElementById(p+'-count');
+    var emp=document.getElementById(p+'-empty');
     if(!el)return;
     cnt.textContent=lobby.length;
     if(emp)emp.style.display=lobby.length?'none':'block';
-    el.innerHTML=lobby.map(x=>`<div class="lrow"><div class="av">${x.name[0].toUpperCase()}</div><span style="color:var(--text2);letter-spacing:0.05em">${x.name.toUpperCase()}</span></div>`).join('');
+    el.innerHTML=lobby.map(function(x){
+      return '<div class="lrow"><div class="av">'+x.name[0].toUpperCase()+'</div><span style="color:var(--text2);letter-spacing:0.05em">'+x.name.toUpperCase()+'</span></div>';
+    }).join('');
   });
-  const b=document.getElementById('hl-start');
+  var b=document.getElementById('hl-start');
   if(b)b.disabled=lobby.length<2;
 }
 
-// ── ROLE ASSIGNMENT ──────────────────────────────────────────────────────────
+// ── ROLE SETUP ──────────────────────────────────────────────────────────────
 function findMyRole(){
   if(!G||!myName)return;
-  ['A','B'].forEach(crew=>{
-    G.players[crew].forEach(p=>{
+  ['A','B'].forEach(function(crew){
+    G.players[crew].forEach(function(p){
       if(p.name===myName){myCrew=crew;myRoles=p.isShadow?['shadow']:(p.roles||[]);}
     });
   });
 }
-
 function showRoleReveal(){
-  const cl=crewLabel(myCrew);
-  const isShadow=myRoles[0]==='shadow';
-  document.getElementById('rr-icon').innerHTML=isShadow?'👁':myRoles.map(r=>RD[r]?.icon||'').join(' ');
+  var cl=crewLabel(myCrew);
+  var isShadow=myRoles[0]==='shadow';
+  document.getElementById('rr-icon').innerHTML=isShadow?'👁':myRoles.map(function(r){return RD[r]?RD[r].icon:'';}).join(' ');
   document.getElementById('rr-crew').textContent='SUB: '+cl;
-  document.getElementById('rr-role').textContent=isShadow?'STATION: SHADOW':'STATION: '+myRoles.map(r=>RD[r]?.name||r).join(' + ').toUpperCase();
-  document.getElementById('rr-desc').textContent=isShadow?'You can view any crewmate\'s station but cannot take actions.':myRoles.map(r=>RD[r]?(RD[r].name+': '+RD[r].desc):''). join('\n\n');
-  const crew=G.players[myCrew];
-  document.getElementById('rr-list').innerHTML=`<p class="pt">CREW ROSTER — ${cl}</p>`+
-    crew.map(p=>{
-      const roles=p.isShadow?['shadow']:(p.roles||[]);
-      const isMe=p.name===myName;
-      return `<div class="lrow"><div class="av">${p.name[0].toUpperCase()}</div>
-        <span style="color:${isMe?'var(--green)':'var(--text2)'};flex:1;letter-spacing:0.04em">${p.name.toUpperCase()}${isMe?' ◄':''}</span>
-        <span style="color:var(--text3);font-size:10px">${(p.isShadow?'Shadow':roles.map(r=>RD[r]?.name||r).join('+')).toUpperCase()}</span>
-      </div>`;
-    }).join('');
+  document.getElementById('rr-role').textContent=isShadow?'STATION: SHADOW':'STATION: '+myRoles.map(function(r){return RD[r]?RD[r].name:r;}).join(' + ').toUpperCase();
+  document.getElementById('rr-desc').textContent=isShadow?'View any crewmate station. No actions.':myRoles.map(function(r){return RD[r]?(RD[r].name+': '+RD[r].desc):'';}).join('\n\n');
+  var crew=G.players[myCrew];
+  var html='<p class="pt">CREW ROSTER — '+cl+'</p>';
+  crew.forEach(function(p){
+    var roles=p.isShadow?['shadow']:(p.roles||[]);
+    var isMe=p.name===myName;
+    var rl=p.isShadow?'Shadow':roles.map(function(r){return RD[r]?RD[r].name:r;}).join('+');
+    html+='<div class="lrow"><div class="av">'+p.name[0].toUpperCase()+'</div>'
+      +'<span style="color:'+(isMe?'var(--green)':'var(--text2)')+';flex:1;letter-spacing:0.04em">'+p.name.toUpperCase()+(isMe?' ◄':'')+'</span>'
+      +'<span style="color:var(--text3);font-size:10px">'+rl.toUpperCase()+'</span></div>';
+  });
+  document.getElementById('rr-list').innerHTML=html;
   show('s-role-reveal');
 }
-
 function goToStation(){
-  const isShadow=myRoles[0]==='shadow';
-  document.getElementById('st-role').textContent=isShadow?'SHADOW':myRoles.map(r=>RD[r]?.name||r).join('+').toUpperCase();
+  var isShadow=myRoles[0]==='shadow';
+  document.getElementById('st-role').textContent=isShadow?'SHADOW':myRoles.map(function(r){return RD[r]?RD[r].name:r;}).join('+').toUpperCase();
   document.getElementById('st-crew').textContent=crewLabel(myCrew).toUpperCase();
   renderStation();show('s-station');
 }
 
-// ── GAME HELPERS ─────────────────────────────────────────────────────────────
+// ── HELPERS ─────────────────────────────────────────────────────────────────
 function crewLabel(cr){return cr==='A'?G.nameA:G.nameB;}
+function crewName(){return crewLabel(myCrew);}
 function crewRound(){return G&&G[myCrew]?G[myCrew].roundNum:1;}
-function addLog(msg,imp=false){if(!G)return;G.log.unshift((imp?'*** ':'')+msg+(imp?' ***':''));if(G.log.length>80)G.log.pop();}
-function getSector(pos){const h=Math.floor(G.size/2);if(pos.r<h&&pos.c<h)return 'A';if(pos.r<h&&pos.c>=h)return 'B';if(pos.r>=h&&pos.c<h)return 'C';return 'D';}
-function hpDots(n,max){let s='';for(let i=0;i<max;i++)s+=`<span class="hp-pip" style="background:${i<n?'var(--green3)':'rgba(255,51,51,0.3)'};${i<n?'box-shadow:0 0 3px rgba(0,255,136,0.3)':''}"></span>`;return s;}
-
+function addLog(msg,imp){
+  if(!G)return;
+  G.log.unshift((imp?'*** ':'')+msg+(imp?' ***':''));
+  if(G.log.length>80)G.log.pop();
+}
+function getSector(pos){
+  var h=Math.floor(G.size/2);
+  if(pos.r<h&&pos.c<h)return 'A';
+  if(pos.r<h&&pos.c>=h)return 'B';
+  if(pos.r>=h&&pos.c<h)return 'C';
+  return 'D';
+}
+function hpDots(n,max){
+  var s='';
+  for(var i=0;i<max;i++)s+='<span class="hp-pip" style="background:'+(i<n?'var(--green3)':'rgba(255,51,51,0.3)')+'"></span>';
+  return s;
+}
 function getCurRole(){return G[myCrew]?G[myCrew].currentTurnRole:'captain';}
-function isMyTurnRole(role){return getCurRole()===role&&myRoles.includes(role);}
-function crewHasRole(role){return G.players[myCrew].some(p=>(p.roles||[]).includes(role));}
+function isMyTurnRole(role){return getCurRole()===role&&myRoles.indexOf(role)>=0;}
+function crewHasRole(role){return G.players[myCrew].some(function(p){return (p.roles||[]).indexOf(role)>=0;});}
 function isDone(role){return !!(G[myCrew].roundDone&&G[myCrew].roundDone[role]);}
 
-// ── RENDER STATION ───────────────────────────────────────────────────────────
+// ── RENDER STATION ──────────────────────────────────────────────────────────
 function renderStation(){
   if(!G)return;
-  const cr=G[myCrew];
+  var cr=G[myCrew];
   document.getElementById('st-round').textContent='R'+cr.roundNum;
-  const cur=getCurRole();
-  const myTurn=myRoles.includes(cur)&&myRoles[0]!=='shadow';
+  var cur=getCurRole();
+  var myTurn=myRoles.indexOf(cur)>=0&&myRoles[0]!=='shadow';
   setOrders(myTurn);
 
   // turn strip
-  const strip=document.getElementById('tstrip');
-  strip.innerHTML=ROLE_ORDER.map(r=>{
-    const has=crewHasRole(r);
-    const done=isDone(r);
-    const active=r===cur;
-    return `<div class="tpip ${active?'cur':done?'done':''} ${!has?'skip':''}">${RD[r]?.icon||''} ${r.toUpperCase()}</div>`;
+  var strip=document.getElementById('tstrip');
+  strip.innerHTML=ROLE_ORDER.map(function(r){
+    var has=crewHasRole(r);
+    var done=isDone(r);
+    var active=r===cur;
+    return '<div class="tpip '+(active?'cur':done?'done':'')+(!has?' skip':'')+'">'+(RD[r]?RD[r].icon:'')+' '+r.toUpperCase()+'</div>';
   }).join('');
 
   // shadow nav
-  const shnav=document.getElementById('shadow-nav');
+  var shnav=document.getElementById('shadow-nav');
   if(myRoles[0]==='shadow'){
     shnav.style.display='flex';
-    shnav.innerHTML=G.players[myCrew].filter(p=>!p.isShadow).map(p=>{
-      const roles=p.roles||[];
-      const active=shadowRole&&roles.includes(shadowRole);
-      return `<button onclick="setShadow('${roles[0]}')" style="${active?'border-color:var(--green);color:var(--green)':''}">${p.name.toUpperCase()} (${roles.map(r=>RD[r]?.name||r).join('+')})</button>`;
+    shnav.innerHTML=G.players[myCrew].filter(function(p){return !p.isShadow;}).map(function(p){
+      var roles=p.roles||[];
+      var active=shadowRole&&roles.indexOf(shadowRole)>=0;
+      return '<button onclick="setShadow(\''+roles[0]+'\')" style="'+(active?'border-color:var(--green);color:var(--green)':'')+'">'+p.name.toUpperCase()+' ('+roles.map(function(r){return RD[r]?RD[r].name:r;}).join('+')+')</button>';
     }).join('');
   } else {
     shnav.style.display='none';
   }
 
-  const body=document.getElementById('station-body');
+  var body=document.getElementById('station-body');
   if(myRoles[0]==='shadow'){
-    const vr=shadowRole||ROLE_ORDER[0];
-    body.innerHTML=renderPanel(vr,false)+miniLog();
+    var vr=shadowRole||ROLE_ORDER[0];
+    body.innerHTML=renderPanel(vr)+miniLog();
   } else {
-    // render roles in ROLE_ORDER sequence
-    const sorted=[...myRoles].sort((a,b)=>ROLE_ORDER.indexOf(a)-ROLE_ORDER.indexOf(b));
-    body.innerHTML=sorted.map((role,i)=>{
-      const html=renderPanel(role,false);
-      if(i===0) return html;
-      return `<div style="border-top:2px solid var(--green4);margin-top:8px;padding-top:10px">
-        <span style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:0.14em;text-transform:uppercase;background:var(--bg2);padding:3px 8px;display:inline-block;margin-bottom:8px">${RD[role]?.icon||''} ${(RD[role]?.name||role).toUpperCase()} STATION</span>
-        ${html}</div>`;
-    }).join('')+miniLog();
+    var sorted=myRoles.slice().sort(function(a,b){return ROLE_ORDER.indexOf(a)-ROLE_ORDER.indexOf(b);});
+    var html='';
+    sorted.forEach(function(role,i){
+      var ph=renderPanel(role);
+      if(i===0){html+=ph;}
+      else{html+='<div style="border-top:2px solid var(--green4);margin-top:8px;padding-top:10px"><span style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:0.14em;text-transform:uppercase;background:var(--bg2);padding:3px 8px;display:inline-block;margin-bottom:8px">'+(RD[role]?RD[role].icon:'')+' '+(RD[role]?RD[role].name:role).toUpperCase()+' STATION</span>'+ph+'</div>';}
+    });
+    body.innerHTML=html+miniLog();
   }
   bindGrids();
 }
-
 function setShadow(role){shadowRole=role;renderStation();}
-
-function renderPanel(role,sup){
-  const fns={captain:renderCaptain,engineer:renderEngineer,sonar:renderSonar,weapons:renderWeapons,firefighter:renderFirefighter,comms:renderComms};
-  return (fns[role]||function(){return '';})();
+function renderPanel(role){
+  var fns={captain:renderCaptain,engineer:renderEngineer,sonar:renderSonar,weapons:renderWeapons,firefighter:renderFirefighter,comms:renderComms};
+  return fns[role]?fns[role]():'';
 }
 
-// ── SUB STATUS ───────────────────────────────────────────────────────────────
-function miniSubGrid(){
-  const cr=G[myCrew];
-  return `<div class="panel" style="margin-bottom:8px">
-    <p class="pt">Sub position — Sector ${getSector(cr.pos)}</p>
-    ${buildGrid({showSub:true,showTrail:true})}
-    <p style="font-size:10px;color:var(--text3);margin-top:6px;letter-spacing:0.07em">ROW ${cr.pos.r+1} · COL ${cr.pos.c+1} · SECTOR ${getSector(cr.pos)}</p>
-  </div>`;
-}
-
+// ── STATUS HELPERS ──────────────────────────────────────────────────────────
 function subStatus(){
-  const cr=G[myCrew];
-  return `<div class="panel" style="margin-bottom:8px">
-    <p class="pt">Submarine status</p>
-    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--text2)">
-      <span>HULL: ${hpDots(cr.hp,G.maxHp)}</span>
-      <span>TORPEDO: <strong style="color:var(--green)">${Math.round(cr.charge)}%</strong></span>
-      <span>SONAR: ${cr.sonarFix?'<span class="badge bg">FIX</span>':'<span class="badge br">NO FIX</span>'}</span>
-      <span>WEAPONS: ${cr.weaponsArmed?'<span class="badge bg">ARMED</span>':'<span class="badge bd">STANDBY</span>'}</span>
-      ${cr.goSilent?'<span class="badge ba">SILENT RUN</span>':''}
-    </div>
-  </div>`;
+  var cr=G[myCrew];
+  return '<div class="panel" style="margin-bottom:8px"><p class="pt">Submarine status</p>'
+    +'<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--text2)">'
+    +'<span>HULL: '+hpDots(cr.hp,G.maxHp)+'</span>'
+    +'<span>TORPEDO: <strong style="color:var(--green)">'+Math.round(cr.charge)+'%</strong></span>'
+    +'<span>SONAR: '+(cr.sonarFix?'<span class="badge bg">FIX</span>':'<span class="badge br">NO FIX</span>')+'</span>'
+    +(cr.goSilent?'<span class="badge ba">SILENT RUN</span>':'')
+    +'</div></div>';
+}
+function miniSubGrid(){
+  var cr=G[myCrew];
+  return '<div class="panel" style="margin-bottom:8px"><p class="pt">Sub position — Sector '+getSector(cr.pos)+'</p>'
+    +buildGrid({showSub:true,showTrail:true})
+    +'<p style="font-size:10px;color:var(--text3);margin-top:6px;letter-spacing:0.07em">ROW '+(cr.pos.r+1)+' · COL '+(cr.pos.c+1)+' · SECTOR '+getSector(cr.pos)+'</p>'
+    +'</div>';
+}
+function miniLog(){
+  if(!G)return'';
+  return '<div class="panel" style="background:var(--bg2)"><p class="pt">System log</p>'
+    +G.log.slice(0,8).map(function(l){return '<div class="log-line'+(l.indexOf('***')===0?' imp':'')+'"> &gt; '+l+'</div>';}).join('')
+    +'</div>';
 }
 
-// ── GRID BUILDER ─────────────────────────────────────────────────────────────
+// ── GRID BUILDER ────────────────────────────────────────────────────────────
 function buildGrid(opts){
-  // opts: {marks, clickable, showSub, showTrail, showFix, targetGrid, onCellClick}
-  const cr=G[myCrew];
-  const sz=G.size<=8?28:G.size<=10?24:20;
-  const half=Math.floor(G.size/2);
-  let html=`<div style="overflow-x:auto;margin-bottom:8px"><div style="display:inline-block">`;
-  // column numbers header
-  html+=`<div style="display:flex"><div style="width:${sz}px"></div>`;
-  for(let c=0;c<G.size;c++) html+=`<div style="width:${sz}px;height:16px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text3);font-weight:700">${c+1}</div>`;
-  html+=`</div>`;
-  for(let r=0;r<G.size;r++){
-    html+=`<div style="display:flex">`;
-    // row number
-    html+=`<div style="width:${sz}px;height:${sz}px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text3);font-weight:700">${r+1}</div>`;
-    for(let c=0;c<G.size;c++){
-      const isPos=cr.pos.r===r&&cr.pos.c===c;
-      const isTrail=opts.showTrail&&cr.trail.some(t=>t.r===r&&t.c===c&&!(t.r===cr.pos.r&&t.c===cr.pos.c));
-      const isMark=opts.marks&&opts.marks[r+','+c];
-      const isFix=opts.showFix&&sonarFixCell&&sonarFixCell.r===r&&sonarFixCell.c===c;
-      const isQH=r===half-1;
-      const isQV=c===half-1;
-      // sector class
-      const qcls=r<half?(c<half?'qa':'qb'):(c<half?'qc':'qd');
-      let cls=`ccell ${qcls}`;
+  var cr=G[myCrew];
+  var sz=G.size<=8?28:G.size<=10?24:20;
+  var half=Math.floor(G.size/2);
+  var html='<div style="overflow-x:auto;margin-bottom:8px"><div style="display:inline-block">';
+  html+='<div style="display:flex"><div style="width:'+sz+'px"></div>';
+  for(var c=0;c<G.size;c++) html+='<div style="width:'+sz+'px;height:16px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text3);font-weight:700">'+(c+1)+'</div>';
+  html+='</div>';
+  for(var r=0;r<G.size;r++){
+    html+='<div style="display:flex">';
+    html+='<div style="width:'+sz+'px;height:'+sz+'px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text3);font-weight:700">'+(r+1)+'</div>';
+    for(c=0;c<G.size;c++){
+      var isPos=cr.pos.r===r&&cr.pos.c===c;
+      var isTrail=opts.showTrail&&cr.trail.some(function(t){return t.r===r&&t.c===c&&!(t.r===cr.pos.r&&t.c===cr.pos.c);});
+      var isMark=opts.marks&&opts.marks[r+','+c];
+      var isFix=opts.showFix&&sonarFixCell&&sonarFixCell.r===r&&sonarFixCell.c===c;
+      var qcls=r<half?(c<half?'qa':'qb'):(c<half?'qc':'qd');
+      var cls='ccell '+qcls;
       if(isPos&&opts.showSub) cls+=' sub';
       else if(isTrail) cls+=' trail';
       if(isMark) cls+=' mark';
       if(isFix) cls+=' fix-target';
-      if(opts.targetGrid){
-        const st=opts.targetGrid[r][c];
-        if(st===2) cls+=' hit-direct';
-        else if(st===3) cls+=' hit-partial';
-        else if(st===1) cls+=' hit-miss';
-        else cls+=' clickable';
-      }
-      const bstyle=`width:${sz}px;height:${sz}px;${isQH?'border-bottom:2px solid rgba(0,255,136,0.25)!important':''}${isQV?';border-right:2px solid rgba(0,255,136,0.25)!important':''}`;
-      const label=isPos&&opts.showSub?'◆':isFix?'⊕':isMark?'·':'';
-      const onClick=opts.onCellClick?`onclick="cellClick(${r},${c})"`:''
-      html+=`<div class="${cls}" style="${bstyle}" ${onClick}>${label}</div>`;
+      var isQH=r===half-1, isQV=c===half-1;
+      var bstyle='width:'+sz+'px;height:'+sz+'px;'+(isQH?'border-bottom:2px solid rgba(0,255,136,0.25);':'')+(isQV?'border-right:2px solid rgba(0,255,136,0.25);':'');
+      var label=isPos&&opts.showSub?'◆':isFix?'⊕':isMark?'·':'';
+      var click=opts.onCellClick?'onclick="cellClick('+r+','+c+')"':'';
+      html+='<div class="'+cls+'" style="'+bstyle+'" '+click+'>'+label+'</div>';
     }
-    html+=`</div>`;
+    html+='</div>';
   }
-  html+=`</div></div>`;
+  html+='</div></div>';
+  return html;
+}
+
+function buildTargetGrid(tg,clickable){
+  var sz=G.size<=8?28:G.size<=10?24:20;
+  var half=Math.floor(G.size/2);
+  var html='<div style="overflow-x:auto;margin-bottom:8px"><div style="display:inline-block">';
+  html+='<div style="display:flex"><div style="width:'+sz+'px"></div>';
+  for(var c=0;c<G.size;c++) html+='<div style="width:'+sz+'px;height:16px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text3);font-weight:700">'+(c+1)+'</div>';
+  html+='</div>';
+  for(var r=0;r<G.size;r++){
+    html+='<div style="display:flex">';
+    html+='<div style="width:'+sz+'px;height:'+sz+'px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text3);font-weight:700">'+(r+1)+'</div>';
+    for(c=0;c<G.size;c++){
+      var st=tg[r][c];
+      var isFix=G[myCrew].sonarCoords&&G[myCrew].sonarCoords.r===r&&G[myCrew].sonarCoords.c===c;
+      var isSel=selectedFireCell&&selectedFireCell.r===r&&selectedFireCell.c===c;
+      var qcls=r<half?(c<half?'qa':'qb'):(c<half?'qc':'qd');
+      var cls='ccell '+qcls;
+      var label='';
+      if(st===2){cls+=' hit-direct';label='✕';}
+      else if(st===3){cls+=' hit-partial';label='·';}
+      else if(st===1){cls+=' hit-miss';label='○';}
+      if(isSel){cls+=' fix-target';label='◉';}
+      else if(isFix&&!label){cls+=' fix-target';label='⊕';}
+      var isQH=r===half-1,isQV=c===half-1;
+      var bstyle='width:'+sz+'px;height:'+sz+'px;'+(isQH?'border-bottom:2px solid rgba(0,255,136,0.25);':'')+(isQV?'border-right:2px solid rgba(0,255,136,0.25);':'');
+      var click=clickable?'onclick="selectFireCell('+r+','+c+')"':'';
+      html+='<div class="'+cls+'" style="'+bstyle+'" '+click+'>'+label+'</div>';
+    }
+    html+='</div>';
+  }
+  html+='</div></div>';
   return html;
 }
 
 function cellClick(r,c){
-  // used by sonar for fix marking and weapons for fire selection
-  const activeRole=getCurRole();
-  if(myRoles.includes('sonar')&&onStation()){
-    sonarFixCell={r,c};
-    G[myCrew].sonarFix=true;
-    G[myCrew].sonarCoords={r,c};
-    addLog(crewName()+' sonar fix: row '+(r+1)+' col '+(c+1)+' sector '+getSector({r,c}));
-    pushState();renderStation();
-  }
+  sonarFixCell={r:r,c:c};
+  G[myCrew].sonarFix=true;
+  G[myCrew].sonarCoords={r:r,c:c};
+  addLog(crewName()+' sonar fix: row '+(r+1)+' col '+(c+1)+' sector '+getSector({r:r,c:c}));
+  pushState();renderStation();
 }
 
-function crewName(){return crewLabel(myCrew);}
-
-// ── CAPTAIN ───────────────────────────────────────────────────────────────────
+// ── CAPTAIN ─────────────────────────────────────────────────────────────────
 function renderCaptain(){
-  const cr=G[myCrew];
-  const active=isMyTurnRole('captain');
-  const done=isDone('captain');
-  const surf=cr.surfacing;
-  const pendingFire=cr.pendingFireCell&&!cr.fireApproved;
-  const approvedFire=cr.pendingFireCell&&cr.fireApproved;
-  return subStatus()+`
-  <div class="panel">
-    <p class="pt">Navigation — Sector ${getSector(cr.pos)}</p>
-    ${surf?`<div class="surf-banner">⚠ SURFACING — ALL CREW COMPLETING CHALLENGES BEFORE DIVE</div>`:''}
-    ${buildGrid({showSub:true,showTrail:true})}
-    <p style="font-size:10px;color:var(--text3);margin-bottom:10px;letter-spacing:0.08em">POSITION: ROW ${cr.pos.r+1} · COL ${cr.pos.c+1} · SECTOR ${getSector(cr.pos)}</p>
-    ${active&&!done&&!surf?`
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
-      <button onclick="captainMove('N')" style="padding:12px;font-size:16px">↑N</button>
-      <button onclick="captainMove('S')" style="padding:12px;font-size:16px">↓S</button>
-      <button onclick="captainMove('W')" style="padding:12px;font-size:16px">←W</button>
-      <button onclick="captainMove('E')" style="padding:12px;font-size:16px">→E</button>
-    </div>
-    <button class="amber" onclick="captainSurface()" style="width:100%">[ SURFACE — RESETS TRAIL, ALL CREW MUST COMPLETE CHALLENGE ]</button>
-    `:done?`<p style="color:var(--green);font-size:12px">✓ HEADING SET</p>`:
-    surf?`<p style="color:var(--amber);font-size:12px">SURFACING IN PROGRESS...</p>`:
-    `<p style="color:var(--text3);font-size:12px">NOT YOUR TURN</p>`}
-  </div>
-  ${pendingFire?`<div class="panel" style="border-color:var(--red)">
-    <p class="pt">⚠ FIRE AUTHORISATION REQUEST</p>
-    <p style="font-size:12px;color:var(--text2);margin-bottom:6px">Weapons officer requests permission to fire at:</p>
-    <p style="font-size:14px;font-weight:700;color:var(--amber);margin-bottom:12px">ROW ${cr.pendingFireCell.r+1} · COL ${cr.pendingFireCell.c+1} · SECTOR ${getSector(cr.pendingFireCell)}</p>
-    <div style="display:flex;gap:8px">
-      <button class="pri" onclick="captainApprove()" style="flex:1">[ APPROVE FIRE ]</button>
-      <button onclick="captainDeny()" style="flex:1">[ DENY ]</button>
-    </div>
-  </div>`:''}
-  ${approvedFire?`<div class="panel" style="border-color:var(--green3)">
-    <p class="pt">Fire authorised</p>
-    <p style="font-size:12px;color:var(--green)">✓ Fire approved for ROW ${cr.pendingFireCell.r+1} · COL ${cr.pendingFireCell.c+1}. Weapons officer is firing.</p>
-  </div>`:''}`;
+  var cr=G[myCrew];
+  var active=isMyTurnRole('captain');
+  var done=isDone('captain');
+  var surf=cr.surfacing;
+  var pendingFire=cr.pendingFireCell&&!cr.fireApproved;
+  var approvedFire=cr.pendingFireCell&&cr.fireApproved;
+
+  var navCtrl='';
+  if(active&&!done&&!surf){
+    navCtrl='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">'
+      +'<button onclick="captainMove(\'N\')" style="padding:12px;font-size:16px">↑N</button>'
+      +'<button onclick="captainMove(\'S\')" style="padding:12px;font-size:16px">↓S</button>'
+      +'<button onclick="captainMove(\'W\')" style="padding:12px;font-size:16px">←W</button>'
+      +'<button onclick="captainMove(\'E\')" style="padding:12px;font-size:16px">→E</button>'
+      +'</div>'
+      +'<button class="amber" onclick="captainSurface()" style="width:100%">[ SURFACE — RESETS TRAIL ]</button>';
+  } else if(done){
+    navCtrl='<p style="color:var(--green);font-size:12px">✓ HEADING SET</p>';
+  } else if(surf){
+    navCtrl='<p style="color:var(--amber);font-size:12px">SURFACING IN PROGRESS...</p>';
+  } else {
+    navCtrl='<p style="color:var(--text3);font-size:12px">NOT YOUR TURN</p>';
+  }
+
+  var firePanel='';
+  if(pendingFire){
+    firePanel='<div class="panel" style="border-color:var(--red)">'
+      +'<p class="pt">⚠ FIRE AUTHORISATION REQUEST</p>'
+      +'<p style="font-size:12px;color:var(--text2);margin-bottom:6px">Weapons requests fire at:</p>'
+      +'<p style="font-size:14px;font-weight:700;color:var(--amber);margin-bottom:12px">ROW '+(cr.pendingFireCell.r+1)+' · COL '+(cr.pendingFireCell.c+1)+' · SECTOR '+getSector(cr.pendingFireCell)+'</p>'
+      +'<div style="display:flex;gap:8px">'
+      +'<button class="pri" onclick="captainApprove()" style="flex:1">[ APPROVE FIRE ]</button>'
+      +'<button onclick="captainDeny()" style="flex:1">[ DENY ]</button>'
+      +'</div></div>';
+  } else if(approvedFire){
+    firePanel='<div class="panel" style="border-color:var(--green3)">'
+      +'<p class="pt">Fire authorised</p>'
+      +'<p style="font-size:12px;color:var(--green)">✓ Approved ROW '+(cr.pendingFireCell.r+1)+' · COL '+(cr.pendingFireCell.c+1)+'. Weapons is firing.</p>'
+      +'</div>';
+  }
+
+  return subStatus()
+    +'<div class="panel">'
+    +'<p class="pt">Navigation — Sector '+getSector(cr.pos)+'</p>'
+    +(surf?'<div class="surf-banner">⚠ SURFACING — ALL CREW MUST COMPLETE CHALLENGES</div>':'')
+    +buildGrid({showSub:true,showTrail:true})
+    +'<p style="font-size:10px;color:var(--text3);margin-bottom:10px;letter-spacing:0.08em">ROW '+(cr.pos.r+1)+' · COL '+(cr.pos.c+1)+' · SECTOR '+getSector(cr.pos)+'</p>'
+    +navCtrl+'</div>'
+    +firePanel;
 }
 
 function captainMove(dir){
-  const dirs={N:{r:-1,c:0},S:{r:1,c:0},W:{r:0,c:-1},E:{r:0,c:1}};
-  const d=dirs[dir];
-  const cr=G[myCrew];
-  const nr=cr.pos.r+d.r,nc=cr.pos.c+d.c;
+  var dirs={N:{r:-1,c:0},S:{r:1,c:0},W:{r:0,c:-1},E:{r:0,c:1}};
+  var d=dirs[dir];
+  var cr=G[myCrew];
+  var nr=cr.pos.r+d.r,nc=cr.pos.c+d.c;
   if(nr<0||nr>=G.size||nc<0||nc>=G.size){toast('OUT OF BOUNDS');return;}
-  if(cr.trail.some(t=>t.r===nr&&t.c===nc)){toast('CANNOT REVISIT SQUARE');return;}
+  if(cr.trail.some(function(t){return t.r===nr&&t.c===nc;})){toast('CANNOT REVISIT SQUARE');return;}
   cr.pos={r:nr,c:nc};cr.trail.push({r:nr,c:nc});
-  const silent=cr.goSilent||cr.commsActive==='silent';
+  var silent=cr.goSilent||cr.commsActive==='silent';
   cr.goSilent=false;
   if(cr.commsActive==='silent') cr.commsActive=null;
   addLog(crewName()+' heading: '+dir+(silent?' [SILENT]':''));
-  send({type:'sonar_ping',room:roomCode,heading:dir,crew:myCrew,silent});
+  send({type:'sonar_ping',room:roomCode,heading:dir,crew:myCrew,silent:silent});
   markDone('captain');
 }
-
 function captainSurface(){
-  const cr=G[myCrew];
-  cr.surfacing=true;
-  cr.surfaceChallenges={};
+  var cr=G[myCrew];cr.surfacing=true;cr.surfaceChallenges={};
   addLog(crewName()+' SURFACING — sector '+getSector(cr.pos));
   send({type:'surface_alert',room:roomCode,crew:myCrew,sector:getSector(cr.pos)});
   pushState();renderStation();
 }
+function captainApprove(){G[myCrew].fireApproved=true;addLog(crewName()+' captain APPROVED fire');pushState();renderStation();}
+function captainDeny(){G[myCrew].pendingFireCell=null;G[myCrew].fireApproved=false;selectedFireCell=null;addLog(crewName()+' captain DENIED fire');pushState();renderStation();}
 
-function captainApprove(){
-  G[myCrew].fireApproved=true;
-  addLog(crewName()+' captain APPROVED fire');
-  pushState();renderStation();
-}
-
-function captainDeny(){
-  G[myCrew].pendingFireCell=null;
-  G[myCrew].fireApproved=false;
-  selectedFireCell=null;
-  addLog(crewName()+' captain DENIED fire');
-  pushState();renderStation();
-}
-
-// ── ENGINEER ──────────────────────────────────────────────────────────────────
-const PUZZLES=[
-  ()=>{const t=Math.floor(Math.random()*12)+8,a=Math.floor(Math.random()*(t-2))+1,c=[a,t-a];const o=[c,[a+2,t-a+1],[a-1,t-a+3],[Math.floor(t/2)+3,2]].filter(x=>x[0]>0&&x[1]>0&&!(x[0]===c[0]&&x[1]===c[1])).slice(0,3);const opts=[c,...o].sort(()=>Math.random()-0.5);return {q:`PAIR THAT SUMS TO <span style="font-size:22px;color:var(--green)">${t}</span>`,opts:opts.map(p=>p[0]+'+'+p[1]),ci:opts.findIndex(p=>p[0]===c[0]&&p[1]===c[1])};},
-  ()=>{const ps=[[2,4,8,16,32],[3,6,9,12,15],[1,4,9,16,25],[5,10,15,20,25],[1,2,4,7,11]];const p=ps[Math.floor(Math.random()*ps.length)];const ans=p[4];const wo=[ans+1,ans-1,ans+3,ans*2].filter(x=>x!==ans);const opts=[ans,...wo.slice(0,3)].sort(()=>Math.random()-0.5);return {q:`NEXT: ${p.slice(0,4).join(', ')}, <span style="color:var(--green)">?</span>`,opts:opts.map(String),ci:opts.indexOf(ans)};},
-  ()=>{const sets=[{i:['SONAR','RADAR','ANCHOR','LIDAR'],o:'ANCHOR'},{i:['TORPEDO','DEPTH CHARGE','MISSILE','PERISCOPE'],o:'PERISCOPE'},{i:['PORT','STARBOARD','FORE','DIVE'],o:'DIVE'},{i:['HULL','KEEL','RUDDER','SONAR'],o:'SONAR'},{i:['CAPTAIN','ENSIGN','ADMIRAL','ENGINEER'],o:'ENGINEER'}];const s=sets[Math.floor(Math.random()*sets.length)];const opts=[...s.i].sort(()=>Math.random()-0.5);return {q:'ODD ONE OUT:',opts,ci:opts.indexOf(s.o)};},
-  ()=>{const ws=['DIVE','FIRE','HULL','PORT','FORE'];const w=ws[Math.floor(Math.random()*ws.length)];const enc=w.split('').map(c=>c.charCodeAt(0)-64).join('-');const wrong=[w.split('').reverse().join(''),ws[(ws.indexOf(w)+1)%ws.length],'BOAT'];const opts=[w,...wrong].sort(()=>Math.random()-0.5);return {q:`DECODE (A=1): <span style="color:var(--green)">${enc}</span>`,opts,ci:opts.indexOf(w)};},
-  ()=>{const n=Math.floor(Math.random()*30)+2;const even=n%2===0;const opts=['EVEN','ODD'];return {q:`IS <span style="font-size:22px;color:var(--green)">${n}</span> EVEN OR ODD?`,opts,ci:even?0:1};}
+// ── PUZZLES ─────────────────────────────────────────────────────────────────
+var PUZZLES=[
+  function(){var t=Math.floor(Math.random()*12)+8,a=Math.floor(Math.random()*(t-2))+1,co=[a,t-a];var o=[[a+2,t-a+1],[a-1,t-a+3],[Math.floor(t/2)+3,2]].filter(function(x){return x[0]>0&&x[1]>0&&!(x[0]===co[0]&&x[1]===co[1]);}).slice(0,3);var opts=[co].concat(o).sort(function(){return Math.random()-0.5;});return {q:'PAIR THAT SUMS TO <span style="font-size:22px;color:var(--green)">'+t+'</span>',opts:opts.map(function(p){return p[0]+'+'+p[1];}),ci:opts.findIndex(function(p){return p[0]===co[0]&&p[1]===co[1];})};},
+  function(){var ps=[[2,4,8,16,32],[3,6,9,12,15],[1,4,9,16,25],[5,10,15,20,25],[1,2,4,7,11]];var p=ps[Math.floor(Math.random()*ps.length)];var ans=p[4];var wo=[ans+1,ans-1,ans+3,ans*2].filter(function(x){return x!==ans;});var opts=[ans].concat(wo.slice(0,3)).sort(function(){return Math.random()-0.5;});return {q:'NEXT IN SEQUENCE: '+p.slice(0,4).join(', ')+', <span style="color:var(--green)">?</span>',opts:opts.map(String),ci:opts.indexOf(ans)};},
+  function(){var sets=[{i:['SONAR','RADAR','ANCHOR','LIDAR'],o:'ANCHOR'},{i:['TORPEDO','DEPTH CHARGE','MISSILE','PERISCOPE'],o:'PERISCOPE'},{i:['PORT','STARBOARD','FORE','DIVE'],o:'DIVE'},{i:['HULL','KEEL','RUDDER','SONAR'],o:'SONAR'},{i:['CAPTAIN','ENSIGN','ADMIRAL','ENGINEER'],o:'ENGINEER'}];var s=sets[Math.floor(Math.random()*sets.length)];var opts=s.i.slice().sort(function(){return Math.random()-0.5;});return {q:'ODD ONE OUT:',opts:opts,ci:opts.indexOf(s.o)};},
+  function(){var ws=['DIVE','FIRE','HULL','PORT','FORE'];var w=ws[Math.floor(Math.random()*ws.length)];var enc=w.split('').map(function(c){return c.charCodeAt(0)-64;}).join('-');var wrong=[w.split('').reverse().join(''),ws[(ws.indexOf(w)+1)%ws.length],'BOAT'];var opts=[w].concat(wrong).sort(function(){return Math.random()-0.5;});return {q:'DECODE (A=1): <span style="color:var(--green)">'+enc+'</span>',opts:opts,ci:opts.indexOf(w)};},
+  function(){var n=Math.floor(Math.random()*30)+2;var even=n%2===0;return {q:'IS <span style="font-size:22px;color:var(--green)">'+n+'</span> EVEN OR ODD?',opts:['EVEN','ODD'],ci:even?0:1};}
 ];
+function genEngPuzzle(){var idx=((G[myCrew].roundNum||1)-1)%5;curEngPuzzle=PUZZLES[idx]();}
+function genWeapPuzzle(){var idx=((G[myCrew].roundNum||1))%5;curWeapPuzzle=PUZZLES[idx]();}
+function genMaintenancePuzzle(){var idx=(G[myCrew].roundNum||1)%3;return PUZZLES[idx]();}
 
-function genEngPuzzle(){
-  const idx=((G[myCrew].roundNum||1)-1)%5;
-  curEngPuzzle=PUZZLES[idx]();
+function renderPuzzleOpts(q,prefix,checkFn){
+  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="'+prefix+'-opts">'
+    +q.opts.map(function(o,i){return '<div class="eopt" id="'+prefix+'-opt-'+i+'" onclick="'+checkFn+'('+i+')">'+o+'</div>';}).join('')+'</div>';
 }
 
-function genWeapPuzzle(){
-  const idx=((G[myCrew].roundNum||1))%5;
-  curWeapPuzzle=PUZZLES[idx]();
-}
-
+// ── ENGINEER ────────────────────────────────────────────────────────────────
 function renderEngineer(){
-  const cr=G[myCrew];
-  const active=isMyTurnRole('engineer');
-  const done=isDone('engineer');
-  // surfacing challenge
+  var cr=G[myCrew];
+  var active=isMyTurnRole('engineer');
+  var done=isDone('engineer');
   if(cr.surfacing&&!cr.surfaceChallenges['engineer']){
-    if(active&&!curEngPuzzle) genEngPuzzle();
-    const q=curEngPuzzle;
-    return `<div class="panel"><p class="pt">⚠ SURFACE CHALLENGE — Engineer</p>
-      ${q?`<p style="font-size:13px;color:var(--text2);margin-bottom:10px">${q.q}</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="eng-opts-s">
-        ${q.opts.map((o,i)=>`<div class="eopt" id="seopt-${i}" onclick="checkSurface('engineer',${i})">${o}</div>`).join('')}
-      </div>`:`<p style="color:var(--text3)">STANDBY</p>`}
-    </div>`;
+    if(active&&!curEngPuzzle)genEngPuzzle();
+    var q=curEngPuzzle;
+    return miniSubGrid()+'<div class="panel"><p class="pt">⚠ SURFACE CHALLENGE — Engineer</p>'
+      +(q?'<p style="font-size:13px;color:var(--text2);margin-bottom:10px">'+q.q+'</p>'+renderPuzzleOpts(q,'eng-surf','checkEngSurf')
+        :'<p style="color:var(--text3)">STANDBY</p>')
+      +'</div>';
   }
-  if(active&&!done&&!curEngPuzzle) genEngPuzzle();
-  const q=curEngPuzzle;
-  return miniSubGrid()+`<div class="panel">
-    <p class="pt">System check — Puzzle type ${((cr.roundNum||1)-1)%5+1}</p>
-    ${active&&!done&&q?`
-    <p style="font-size:13px;color:var(--text2);margin-bottom:6px;line-height:1.8">${q.q}</p>
-    <p style="font-size:10px;color:var(--text3);margin-bottom:12px;letter-spacing:0.05em">FAIL = NO TORPEDO CHARGE THIS ROUND</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="eng-opts">
-      ${q.opts.map((o,i)=>`<div class="eopt" id="eopt-${i}" onclick="checkEng(${i})">${o}</div>`).join('')}
-    </div>`:done?`<p style="color:var(--green);font-size:12px">✓ SYSTEMS NOMINAL</p>`:
-    `<p style="color:var(--text3);font-size:12px">STANDBY</p>`}
-  </div>`;
+  if(active&&!done&&!curEngPuzzle)genEngPuzzle();
+  var q=curEngPuzzle;
+  var body='';
+  if(active&&!done&&q){
+    body='<p style="font-size:13px;color:var(--text2);margin-bottom:6px;line-height:1.8">'+q.q+'</p>'
+      +'<p style="font-size:10px;color:var(--text3);margin-bottom:12px">FAIL = NO TORPEDO CHARGE THIS ROUND</p>'
+      +renderPuzzleOpts(q,'eng','checkEng');
+  } else if(done){
+    body='<p style="color:var(--green);font-size:12px">✓ SYSTEMS NOMINAL</p>';
+  } else {
+    body='<p style="color:var(--text3);font-size:12px">STANDBY</p>';
+  }
+  return miniSubGrid()+'<div class="panel"><p class="pt">System check — Type '+((cr.roundNum||1)-1)%5+1+'</p>'+body+'</div>';
 }
-
 function checkEng(i){
-  const q=curEngPuzzle;const el=document.getElementById('eopt-'+i);
-  if(i===q.ci){
-    el.classList.add('ok');
-    G[myCrew].charge=Math.min(100,G[myCrew].charge+25);
-    curEngPuzzle=null;
-    setTimeout(()=>markDone('engineer'),400);
-  } else {
-    el.classList.add('no');
-    addLog(crewName()+' engineer: wrong — no charge');
-    setTimeout(()=>el&&el.classList.remove('no'),700);
-  }
+  var q=curEngPuzzle;if(!q)return;
+  var el=document.getElementById('eng-opt-'+i);
+  if(i===q.ci){if(el)el.classList.add('ok');G[myCrew].charge=Math.min(100,G[myCrew].charge+25);curEngPuzzle=null;setTimeout(function(){markDone('engineer');},400);}
+  else{if(el){el.classList.add('no');setTimeout(function(){el.classList.remove('no');},700);} addLog(crewName()+' engineer: wrong');}
+}
+function checkEngSurf(i){
+  var q=curEngPuzzle;if(!q)return;
+  var el=document.getElementById('eng-surf-opt-'+i);
+  if(i===q.ci){if(el)el.classList.add('ok');curEngPuzzle=null;setTimeout(function(){completeSurfaceChallenge('engineer');},400);}
+  else{if(el){el.classList.add('no');setTimeout(function(){el.classList.remove('no');},700);}}
 }
 
-function checkSurface(role,i){
-  const q=curEngPuzzle||curWeapPuzzle;
-  if(!q)return;
-  const el=document.getElementById('seopt-'+i)||document.getElementById('wseopt-'+i)||document.getElementById('fseopt-'+i)||document.getElementById('sseopt-'+i)||document.getElementById('cseopt-'+i);
-  if(i===q.ci){
-    if(el)el.classList.add('ok');
-    G[myCrew].surfaceChallenges[role]=true;
-    curEngPuzzle=null;curWeapPuzzle=null;
-    // check if all roles done surfacing
-    const roles=G.players[myCrew].flatMap(p=>p.roles||[]);
-    const allDone=roles.every(r=>G[myCrew].surfaceChallenges[r]);
-    if(allDone){
-      G[myCrew].trail=[{...G[myCrew].pos}];
-      G[myCrew].surfacing=false;
-      G[myCrew].surfaceChallenges={};
-      addLog(crewName()+' DIVED — trail cleared');
-    }
-    setTimeout(()=>{ pushState();renderStation();},400);
-  } else {
-    if(el)el.classList.add('no');
-    setTimeout(()=>el&&el.classList.remove('no'),700);
-  }
-}
-
-// ── SONAR ─────────────────────────────────────────────────────────────────────
+// ── SONAR ───────────────────────────────────────────────────────────────────
 function renderSonar(){
-  const cr=G[myCrew];
-  const active=isMyTurnRole('sonar');
-  const done=isDone('sonar');
+  var cr=G[myCrew];
+  var active=isMyTurnRole('sonar');
+  var done=isDone('sonar');
   if(cr.surfacing&&!cr.surfaceChallenges['sonar']){
-    if(active&&!curEngPuzzle) genEngPuzzle();
-    const q=curEngPuzzle;
-    return `<div class="panel"><p class="pt">⚠ SURFACE CHALLENGE — Sonar</p>
-      ${q?`<p style="font-size:13px;color:var(--text2);margin-bottom:10px">${q.q}</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="sonar-surf-opts">
-        ${q.opts.map((o,i)=>`<div class="eopt" id="sseopt-${i}" onclick="checkSurface('sonar',${i})">${o}</div>`).join('')}
-      </div>`:`<p style="color:var(--text3)">STANDBY</p>`}
-    </div>`;
+    if(active&&!curEngPuzzle)genEngPuzzle();
+    var q=curEngPuzzle;
+    return miniSubGrid()+'<div class="panel"><p class="pt">⚠ SURFACE CHALLENGE — Sonar</p>'
+      +(q?'<p style="font-size:13px;color:var(--text2);margin-bottom:10px">'+q.q+'</p>'+renderPuzzleOpts(q,'sonar-surf','checkSonarSurf'):'<p style="color:var(--text3)">STANDBY</p>')
+      +'</div>';
   }
-  return miniSubGrid()+`<div class="panel">
-    <p class="pt">Sonar station</p>
-    <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Click grid to place fix marker ⊕. Coords sent to weapons automatically.</p>
-    ${buildGrid({marks:sonarMarks,showFix:true,onCellClick:true})}
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-      <button onclick="sonarClear()" style="font-size:10px">[ CLEAR ]</button>
-      ${cr.sonarFix&&cr.sonarCoords?`<span class="badge bg">FIX: R${cr.sonarCoords.r+1} C${cr.sonarCoords.c+1} — ${getSector(cr.sonarCoords)}</span>`:''}
-    </div>
-    ${active&&!done?`<button class="pass" onclick="passOrders()">[ PASS ORDERS ]</button>`:''}
-  </div>
-  <div class="panel">
-    <p class="pt">Movement log</p>
-    <div class="notepad">${sonarNotes.length?sonarNotes.map((n,i)=>`<div class="ne"><span>[R${n.r}]</span> ${String(i+1).padStart(2,'0')} ${n.t}</div>`).join(''):'<span style="color:var(--text3);font-size:11px">No contacts yet.</span>'}</div>
-    ${active?`<div style="display:flex;gap:6px;margin-top:8px"><input type="text" id="snote" placeholder="Add note..." style="flex:1;font-size:11px;padding:6px 10px"><button onclick="addNote()">[ ADD ]</button></div>`:''}
-  </div>`;
+  var fixInfo=cr.sonarFix&&cr.sonarCoords?'<span class="badge bg">FIX: R'+(cr.sonarCoords.r+1)+' C'+(cr.sonarCoords.c+1)+' — '+getSector(cr.sonarCoords)+'</span>':'';
+  var passBtn=active&&!done?'<button class="pass" onclick="passOrders()">[ PASS ORDERS ]</button>':'';
+  var noteRows=sonarNotes.length?sonarNotes.map(function(n,i){return '<div class="ne"><span>[R'+n.r+']</span> '+String(i+1).padStart(2,'0')+' '+n.t+'</div>';}).join(''):'<span style="color:var(--text3);font-size:11px">No contacts yet.</span>';
+  var noteInput=active?'<div style="display:flex;gap:6px;margin-top:8px"><input type="text" id="snote" placeholder="Add note..." style="flex:1;font-size:11px;padding:6px 10px"><button onclick="addNote()">[ ADD ]</button></div>':'';
+  return miniSubGrid()
+    +'<div class="panel"><p class="pt">Sonar station</p>'
+    +'<p style="font-size:11px;color:var(--text3);margin-bottom:8px">Click grid to place fix marker ⊕. Coords sent to weapons automatically.</p>'
+    +buildGrid({marks:sonarMarks,showFix:true,onCellClick:true})
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
+    +'<button onclick="sonarClear()" style="font-size:10px">[ CLEAR ]</button>'+fixInfo+'</div>'
+    +passBtn+'</div>'
+    +'<div class="panel"><p class="pt">Movement log</p>'
+    +'<div class="notepad">'+noteRows+'</div>'
+    +noteInput+'</div>';
 }
-
-function addNote(){const el=document.getElementById('snote');if(!el||!el.value.trim())return;sonarNotes.push({r:crewRound(),t:el.value.trim()});el.value='';renderStation();}
+function addNote(){var el=document.getElementById('snote');if(!el||!el.value.trim())return;sonarNotes.push({r:crewRound(),t:el.value.trim()});el.value='';renderStation();}
 function sonarClear(){sonarMarks={};sonarFixCell=null;G[myCrew].sonarFix=false;G[myCrew].sonarCoords=null;pushState();renderStation();}
+function checkSonarSurf(i){
+  var q=curEngPuzzle;if(!q)return;
+  var el=document.getElementById('sonar-surf-opt-'+i);
+  if(i===q.ci){if(el)el.classList.add('ok');curEngPuzzle=null;setTimeout(function(){completeSurfaceChallenge('sonar');},400);}
+  else{if(el){el.classList.add('no');setTimeout(function(){el.classList.remove('no');},700);}}
+}
 
-// ── WEAPONS ───────────────────────────────────────────────────────────────────
+// ── WEAPONS ─────────────────────────────────────────────────────────────────
 function renderWeapons(){
-  const cr=G[myCrew];
-  const active=isMyTurnRole('weapons');
-  const done=isDone('weapons');
+  var cr=G[myCrew];
+  var active=isMyTurnRole('weapons');
+  var done=isDone('weapons');
   if(cr.surfacing&&!cr.surfaceChallenges['weapons']){
-    if(active&&!curWeapPuzzle) genWeapPuzzle();
-    const q=curWeapPuzzle;
-    return `<div class="panel"><p class="pt">⚠ SURFACE CHALLENGE — Weapons</p>
-      ${q?`<p style="font-size:13px;color:var(--text2);margin-bottom:10px">${q.q}</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        ${q.opts.map((o,i)=>`<div class="eopt" id="wseopt-${i}" onclick="checkSurface('weapons',${i})">${o}</div>`).join('')}
-      </div>`:`<p style="color:var(--text3)">STANDBY</p>`}
-    </div>`;
+    if(active&&!curWeapPuzzle)genWeapPuzzle();
+    var q=curWeapPuzzle;
+    return miniSubGrid()+'<div class="panel"><p class="pt">⚠ SURFACE CHALLENGE — Weapons</p>'
+      +(q?'<p style="font-size:13px;color:var(--text2);margin-bottom:10px">'+q.q+'</p>'+renderPuzzleOpts(q,'weap-surf','checkWeapSurf'):'<p style="color:var(--text3)">STANDBY</p>')
+      +'</div>';
   }
-  const tg=myCrew==='A'?G.targetGridA:G.targetGridB;
-  const hasCharge=cr.charge>=100;
-  const hasFix=cr.sonarFix&&cr.sonarCoords;
-  const canRequest=hasCharge&&hasFix&&!cr.pendingFireCell;
-  const pendingApproval=cr.pendingFireCell&&!cr.fireApproved;
-  const approved=cr.pendingFireCell&&cr.fireApproved;
-  return miniSubGrid()+`<div class="panel">
-    <p class="pt">Torpedo tube</p>
-    <div class="prog"><div class="prog-fill" style="width:${Math.round(cr.charge)}%"></div></div>
-    <p style="font-size:11px;color:var(--text3);margin-bottom:10px;letter-spacing:0.05em">CHARGE: <strong style="color:var(--green)">${Math.round(cr.charge)}%</strong> — max +25% per round via challenge
-      ${cr.charge>=100?'<span class="badge bg" style="margin-left:6px">FULL</span>':''}</p>
-    ${active&&!done&&cr.charge<100&&!curWeapPuzzle?`<button class="pri" onclick="startWeapChallenge()">[ CHARGE TORPEDO — SOLVE CHALLENGE ]</button>`:''}
-    ${active&&curWeapPuzzle?`
-    <p style="font-size:13px;color:var(--text2);margin-bottom:6px;line-height:1.8">${curWeapPuzzle.q}</p>
-    <p style="font-size:10px;color:var(--text3);margin-bottom:12px;letter-spacing:0.05em">SOLVE TO GAIN +25% CHARGE</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="weap-opts">
-      ${curWeapPuzzle.opts.map((o,i)=>`<div class="eopt" id="wopt-${i}" onclick="checkWeap(${i})">${o}</div>`).join('')}
-    </div>`:''}
-  </div>
-  <div class="panel" style="${approved?'border-color:var(--red)':pendingApproval?'border-color:var(--amber)':''}">
-    <p class="pt">Fire control</p>
-    ${cr.sonarCoords?`<p style="font-size:12px;color:var(--amber);margin-bottom:8px;font-weight:700">⊕ SONAR FIX: ROW ${cr.sonarCoords.r+1} · COL ${cr.sonarCoords.c+1} · SECTOR ${getSector(cr.sonarCoords)}</p>`:`<p style="font-size:11px;color:var(--text3);margin-bottom:8px">Awaiting sonar fix...</p>`}
-    ${pendingApproval?`<div style="background:rgba(255,170,0,0.08);border:1px solid rgba(255,170,0,0.3);border-radius:3px;padding:10px;margin-bottom:10px">
-      <p style="font-size:11px;color:var(--amber);letter-spacing:0.08em">⏳ AWAITING CAPTAIN APPROVAL</p>
-      <p style="font-size:12px;color:var(--text2);margin-top:4px">Target: ROW ${cr.pendingFireCell.r+1} · COL ${cr.pendingFireCell.c+1}</p>
-    </div>`:''}
-    ${approved?`<div style="background:rgba(0,255,136,0.08);border:1px solid var(--green4);border-radius:3px;padding:10px;margin-bottom:10px">
-      <p style="font-size:11px;color:var(--green);letter-spacing:0.08em;font-weight:700">✓ CAPTAIN APPROVED — FIRE WHEN READY</p>
-      <p style="font-size:12px;color:var(--text2);margin-top:4px">Target: ROW ${cr.pendingFireCell.r+1} · COL ${cr.pendingFireCell.c+1}</p>
-    </div>
-    <button class="danger" onclick="confirmFire()" style="width:100%;margin-bottom:10px;font-size:13px;padding:12px">[ FIRE TORPEDO ]</button>`:''}
-    ${canRequest&&active?`<p style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--text2)">SELECT TARGET — then request approval</p>
-      ${buildTargetGrid(tg,true)}`:
-    hasCharge&&hasFix&&!active?buildTargetGrid(tg,false):
-    !hasCharge||!hasFix?`<p style="font-size:11px;color:var(--text3)">Need: 100% charge + sonar fix.${!hasCharge?' Charge: '+Math.round(cr.charge)+'%':''}${!hasFix?' No sonar fix.':''}</p>`:''}
-    ${active&&!done&&!approved?`<button class="pass" onclick="passOrders()">[ PASS ORDERS ]</button>`:''}
-  </div>`;
-}
+  var tg=myCrew==='A'?G.targetGridA:G.targetGridB;
+  var hasCharge=cr.charge>=100;
+  var hasFix=cr.sonarFix&&cr.sonarCoords;
+  var canRequest=hasCharge&&hasFix&&!cr.pendingFireCell;
+  var pendingApproval=cr.pendingFireCell&&!cr.fireApproved;
+  var approved=cr.pendingFireCell&&cr.fireApproved;
 
-function buildTargetGrid(tg,clickable){
-  const sz=G.size<=8?28:G.size<=10?24:20;
-  const half=Math.floor(G.size/2);
-  let html=`<div style="overflow-x:auto;margin-bottom:8px"><div style="display:inline-block">`;
-  html+=`<div style="display:flex"><div style="width:${sz}px"></div>`;
-  for(let c=0;c<G.size;c++) html+=`<div style="width:${sz}px;height:16px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text3);font-weight:700">${c+1}</div>`;
-  html+=`</div>`;
-  for(let r=0;r<G.size;r++){
-    html+=`<div style="display:flex">`;
-    html+=`<div style="width:${sz}px;height:${sz}px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text3);font-weight:700">${r+1}</div>`;
-    for(let c=0;c<G.size;c++){
-      const st=tg[r][c];
-      const isQH=r===half-1,isQV=c===half-1;
-      const qcls=r<half?(c<half?'qa':'qb'):(c<half?'qc':'qd');
-      const isFix=G[myCrew].sonarCoords&&G[myCrew].sonarCoords.r===r&&G[myCrew].sonarCoords.c===c;
-      const isSel=selectedFireCell&&selectedFireCell.r===r&&selectedFireCell.c===c;
-      let cls=`ccell ${qcls}`;
-      let label='';
-      // show history but always allow clicking again
-      if(st===2){cls+=' hit-direct';label='✕';}
-      else if(st===3){cls+=' hit-partial';label='·';}
-      else if(st===1){cls+=' hit-miss';label='○';}
-      if(isFix){cls+=' fix-target';if(!label)label='⊕';}
-      if(isSel){cls+=' fix-target';label='◉';}
-      const bstyle=`width:${sz}px;height:${sz}px;${isQH?'border-bottom:2px solid rgba(0,255,136,0.25)':''}${isQV?';border-right:2px solid rgba(0,255,136,0.25)':''}`;
-      const click=clickable?`onclick="selectFireCell(${r},${c})"`:''
-      html+=`<div class="${cls}" style="${bstyle}" ${click}>${label}</div>`;
-    }
-    html+=`</div>`;
+  // charge panel
+  var chargeBody='';
+  if(active&&!done&&cr.charge<100&&!curWeapPuzzle){
+    chargeBody='<button class="pri" onclick="startWeapChallenge()">[ CHARGE TORPEDO — SOLVE CHALLENGE ]</button>';
+  } else if(active&&curWeapPuzzle){
+    chargeBody='<p style="font-size:13px;color:var(--text2);margin-bottom:6px;line-height:1.8">'+curWeapPuzzle.q+'</p>'
+      +'<p style="font-size:10px;color:var(--text3);margin-bottom:12px">SOLVE TO GAIN +25% CHARGE</p>'
+      +renderPuzzleOpts(curWeapPuzzle,'weap','checkWeap');
+  } else if(cr.charge>=100){
+    chargeBody='<span class="badge bg">100% — TORPEDO ARMED</span>';
   }
-  html+=`</div></div>`;
-  return html;
-}
 
-function selectFireCell(r,c){
-  selectedFireCell={r,c};
-  G[myCrew].pendingFireCell=null;
-  G[myCrew].fireApproved=false;
-  renderStation();
-  // show request button
-  const body=document.getElementById('station-body');
-  // append request button after grid
-  const existing=document.getElementById('fire-request-btn');
-  if(!existing){
-    const btn=document.createElement('button');
-    btn.id='fire-request-btn';
-    btn.className='pri';
-    btn.style.cssText='width:100%;padding:10px;margin-top:8px';
-    btn.textContent='[ REQUEST CAPTAIN APPROVAL — ROW '+(r+1)+' COL '+(c+1)+' ]';
-    btn.onclick=()=>requestFire();
-    // find fire control panel and append
-    const panels=document.querySelectorAll('.panel');
-    if(panels.length) panels[panels.length-2].appendChild(btn);
-  } else {
-    existing.textContent='[ REQUEST CAPTAIN APPROVAL — ROW '+(r+1)+' COL '+(c+1)+' ]';
-    existing.onclick=()=>requestFire();
+  // fire panel status
+  var fireStatus='';
+  if(pendingApproval){
+    fireStatus='<div style="background:rgba(255,170,0,0.08);border:1px solid rgba(255,170,0,0.3);border-radius:3px;padding:10px;margin-bottom:10px">'
+      +'<p style="font-size:11px;color:var(--amber)">⏳ AWAITING CAPTAIN APPROVAL</p>'
+      +'<p style="font-size:12px;color:var(--text2);margin-top:4px">Target: ROW '+(cr.pendingFireCell.r+1)+' · COL '+(cr.pendingFireCell.c+1)+'</p></div>';
+  } else if(approved){
+    fireStatus='<div style="background:rgba(0,255,136,0.08);border:1px solid var(--green4);border-radius:3px;padding:10px;margin-bottom:10px">'
+      +'<p style="font-size:11px;color:var(--green);font-weight:700">✓ CAPTAIN APPROVED — FIRE WHEN READY</p>'
+      +'<p style="font-size:12px;color:var(--text2);margin-top:4px">Target: ROW '+(cr.pendingFireCell.r+1)+' · COL '+(cr.pendingFireCell.c+1)+'</p></div>'
+      +'<button class="danger" onclick="confirmFire()" style="width:100%;margin-bottom:10px;font-size:13px;padding:12px">[ FIRE TORPEDO ]</button>';
   }
-}
 
+  var targetGrid='';
+  if(canRequest&&active){
+    targetGrid='<p style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--text2)">SELECT TARGET — then request approval</p>'
+      +buildTargetGrid(tg,true)
+      +(selectedFireCell?'<button class="pri" onclick="requestFire()" style="width:100%">[ REQUEST CAPTAIN APPROVAL — ROW '+(selectedFireCell.r+1)+' COL '+(selectedFireCell.c+1)+' ]</button>':'');
+  } else if(hasCharge&&hasFix&&!active){
+    targetGrid=buildTargetGrid(tg,false);
+  } else if(!hasCharge||!hasFix){
+    targetGrid='<p style="font-size:11px;color:var(--text3)">Need: 100% charge + sonar fix.'
+      +(!hasCharge?' Charge: '+Math.round(cr.charge)+'%.':'')
+      +(!hasFix?' No sonar fix.':'')+'</p>';
+  }
+  var passBtn=active&&!done&&!approved?'<button class="pass" onclick="passOrders()">[ PASS ORDERS ]</button>':'';
+
+  return miniSubGrid()
+    +'<div class="panel"><p class="pt">Torpedo tube</p>'
+    +'<div class="prog"><div class="prog-fill" style="width:'+Math.round(cr.charge)+'%"></div></div>'
+    +'<p style="font-size:11px;color:var(--text3);margin-bottom:10px">CHARGE: <strong style="color:var(--green)">'+Math.round(cr.charge)+'%</strong> — max +25% per round</p>'
+    +chargeBody+'</div>'
+    +'<div class="panel" style="'+(approved?'border-color:var(--red)':pendingApproval?'border-color:var(--amber)':'')+'">'
+    +'<p class="pt">Fire control</p>'
+    +(cr.sonarCoords?'<p style="font-size:12px;color:var(--amber);margin-bottom:8px;font-weight:700">⊕ SONAR FIX: ROW '+(cr.sonarCoords.r+1)+' · COL '+(cr.sonarCoords.c+1)+' · SECTOR '+getSector(cr.sonarCoords)+'</p>':'<p style="font-size:11px;color:var(--text3);margin-bottom:8px">Awaiting sonar fix...</p>')
+    +fireStatus+targetGrid+passBtn
+    +'</div>';
+}
+function startWeapChallenge(){genWeapPuzzle();renderStation();}
+function checkWeap(i){
+  var q=curWeapPuzzle;if(!q)return;
+  var el=document.getElementById('weap-opt-'+i);
+  if(i===q.ci){if(el)el.classList.add('ok');G[myCrew].charge=Math.min(100,G[myCrew].charge+25);curWeapPuzzle=null;addLog(crewName()+' torpedo charge: '+Math.round(G[myCrew].charge)+'%');setTimeout(function(){pushState();renderStation();},400);}
+  else{if(el){el.classList.add('no');setTimeout(function(){el.classList.remove('no');},700);}}
+}
+function checkWeapSurf(i){
+  var q=curWeapPuzzle;if(!q)return;
+  var el=document.getElementById('weap-surf-opt-'+i);
+  if(i===q.ci){if(el)el.classList.add('ok');curWeapPuzzle=null;setTimeout(function(){completeSurfaceChallenge('weapons');},400);}
+  else{if(el){el.classList.add('no');setTimeout(function(){el.classList.remove('no');},700);}}
+}
+function selectFireCell(r,c){selectedFireCell={r:r,c:c};renderStation();}
 function requestFire(){
-  if(!selectedFireCell) return;
+  if(!selectedFireCell)return;
   G[myCrew].pendingFireCell=selectedFireCell;
   G[myCrew].fireApproved=false;
   addLog(crewName()+' weapons requests fire at ROW '+(selectedFireCell.r+1)+' COL '+(selectedFireCell.c+1));
   pushState();renderStation();
 }
-
 function confirmFire(){
-  const cr=G[myCrew];
-  if(!cr.pendingFireCell||!cr.fireApproved) return;
+  var cr=G[myCrew];
+  if(!cr.pendingFireCell||!cr.fireApproved)return;
   send({type:'fire_torpedo',room:roomCode,firingCrew:myCrew,row:cr.pendingFireCell.r,col:cr.pendingFireCell.c});
   cr.pendingFireCell=null;cr.fireApproved=false;selectedFireCell=null;
   markDone('weapons');
 }
 
-function startWeapChallenge(){genWeapPuzzle();renderStation();}
-
-function checkWeap(i){
-  const q=curWeapPuzzle;const el=document.getElementById('wopt-'+i);
-  if(!q) return;
-  if(i===q.ci){
-    el.classList.add('ok');
-    G[myCrew].charge=Math.min(100,G[myCrew].charge+25);
-    curWeapPuzzle=null;
-    addLog(crewName()+' torpedo charge: '+Math.round(G[myCrew].charge)+'%');
-    setTimeout(()=>{pushState();renderStation();},400);
-  } else {
-    el.classList.add('no');
-    setTimeout(()=>el&&el.classList.remove('no'),700);
-  }
-}
-
-// ── FIREFIGHTER ───────────────────────────────────────────────────────────────
+// ── FIREFIGHTER ─────────────────────────────────────────────────────────────
 function renderFirefighter(){
-  const cr=G[myCrew];
-  const active=isMyTurnRole('firefighter');
-  const done=isDone('firefighter');
+  var cr=G[myCrew];
+  var active=isMyTurnRole('firefighter');
+  var done=isDone('firefighter');
   if(cr.surfacing&&!cr.surfaceChallenges['firefighter']){
-    if(active&&!curEngPuzzle) genEngPuzzle();
-    const q=curEngPuzzle;
-    return `<div class="panel"><p class="pt">⚠ SURFACE CHALLENGE — Firefighter</p>
-      ${q?`<p style="font-size:13px;color:var(--text2);margin-bottom:10px">${q.q}</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        ${q.opts.map((o,i)=>`<div class="eopt" id="fseopt-${i}" onclick="checkSurface('firefighter',${i})">${o}</div>`).join('')}
-      </div>`:`<p style="color:var(--text3)">STANDBY</p>`}
-    </div>`;
+    if(active&&!curEngPuzzle)genEngPuzzle();
+    var q=curEngPuzzle;
+    return miniSubGrid()+'<div class="panel"><p class="pt">⚠ SURFACE CHALLENGE — Firefighter</p>'
+      +(q?'<p style="font-size:13px;color:var(--text2);margin-bottom:10px">'+q.q+'</p>'+renderPuzzleOpts(q,'ff-surf','checkFFSurf'):'<p style="color:var(--text3)">STANDBY</p>')
+      +'</div>';
   }
-  const hasDamage=cr.damage&&!cr.damage.fixed;
+  var hasDamage=cr.damage&&!cr.damage.fixed;
   if(hasDamage&&active&&!cr.damage.puzzle){
-    // generate harder puzzle for damage: multi-step
-    const a=Math.floor(Math.random()*5)+2;
-    const b=Math.floor(Math.random()*5)+2;
-    const target=a*b;
-    const wo=[target+a,target-b,target+3,a+b];
-    const opts=[target,...wo.filter(x=>x!==target).slice(0,3)].sort(()=>Math.random()-0.5);
-    cr.damage.puzzle={q:`CRITICAL: <span style="font-size:20px;color:var(--red)">${a} × ${b} = ?</span>`,opts:opts.map(String),ci:opts.indexOf(target)};
+    var a=Math.floor(Math.random()*5)+2,b=Math.floor(Math.random()*5)+2,target=a*b;
+    var wo=[target+a,target-b,target+3,a+b];
+    var opts=[target].concat(wo.filter(function(x){return x!==target;}).slice(0,3)).sort(function(){return Math.random()-0.5;});
+    cr.damage.puzzle={q:'CRITICAL: '+a+' &times; '+b+' = ?',opts:opts.map(String),ci:opts.indexOf(target)};
   }
-  return miniSubGrid()+`<div class="panel" style="${hasDamage?'border-color:var(--red)':''}">
-    <p class="pt">${hasDamage?'⚠ DAMAGE CONTROL':'Maintenance check'}</p>
-    ${hasDamage?`
-    <div class="fire-timer ${cr.damage.timeLeft<20?'urg':''}" id="ff-timer">TIME: ${cr.damage.timeLeft}s</div>
-    <p style="font-size:11px;color:var(--red);margin:8px 0;letter-spacing:0.04em">CONTAIN DAMAGE — FAIL = +1 HULL DAMAGE PER MINUTE</p>
-    ${active&&cr.damage.puzzle?`<p style="font-size:13px;color:var(--text2);margin-bottom:10px">${cr.damage.puzzle.q}</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="ff-opts">
-      ${cr.damage.puzzle.opts.map((o,i)=>`<div class="eopt" id="ffopt-${i}" onclick="checkFF(${i})">${o}</div>`).join('')}
-    </div>`:active?`<p style="color:var(--text3);font-size:11px">Generating damage control puzzle...</p>`:
-    `<p style="color:var(--text3);font-size:11px">Firefighter responding...</p>`}
-    `:`
-    <p style="font-size:11px;color:var(--text3);margin-bottom:12px">Routine maintenance check — solve to confirm systems operational.</p>
-    ${active&&!done?(() => {
-      if(!G[myCrew].maintenancePuzzle) G[myCrew].maintenancePuzzle=genMaintenancePuzzle();
-      const mp=G[myCrew].maintenancePuzzle;
-      return `<p style="font-size:13px;color:var(--text2);margin-bottom:6px;line-height:1.8">${mp.q}</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="maint-opts">
-        ${mp.opts.map((o,i)=>`<div class="eopt" id="maintopt-${i}" onclick="checkMaintenance(${i})">${o}</div>`).join('')}
-      </div>`;
-    })():
-    done?`<p style="color:var(--green);font-size:12px">✓ MAINTENANCE DONE</p>`:
-    `<p style="color:var(--text3);font-size:12px">STANDBY</p>`}`}
-  </div>`;
+  var body='';
+  if(hasDamage){
+    var timerCls='fire-timer'+(cr.damage.timeLeft<20?' urg':'');
+    body='<div class="'+timerCls+'" id="ff-timer">TIME: '+cr.damage.timeLeft+'s</div>'
+      +'<p style="font-size:11px;color:var(--red);margin:8px 0">CONTAIN DAMAGE — FAIL = +1 HULL PER MINUTE</p>';
+    if(active&&cr.damage.puzzle){
+      body+='<p style="font-size:13px;color:var(--text2);margin-bottom:10px">'+cr.damage.puzzle.q+'</p>'
+        +renderPuzzleOpts(cr.damage.puzzle,'ff','checkFF');
+    } else if(active){
+      body+='<p style="color:var(--text3);font-size:11px">Generating puzzle...</p>';
+    } else {
+      body+='<p style="color:var(--text3);font-size:11px">Firefighter responding...</p>';
+    }
+  } else {
+    var maintHtml='';
+    if(active&&!done){
+      if(!cr.maintenancePuzzle) cr.maintenancePuzzle=genMaintenancePuzzle();
+      var mp=cr.maintenancePuzzle;
+      maintHtml='<p style="font-size:13px;color:var(--text2);margin-bottom:6px;line-height:1.8">'+mp.q+'</p>'
+        +renderPuzzleOpts(mp,'maint','checkMaintenance');
+    } else if(done){
+      maintHtml='<p style="color:var(--green);font-size:12px">✓ MAINTENANCE DONE</p>';
+    } else {
+      maintHtml='<p style="color:var(--text3);font-size:12px">STANDBY</p>';
+    }
+    body='<p style="font-size:11px;color:var(--text3);margin-bottom:12px">Routine maintenance — solve to confirm systems operational.</p>'+maintHtml;
+  }
+  return miniSubGrid()+'<div class="panel" style="'+(hasDamage?'border-color:var(--red)':'')+'">'
+    +'<p class="pt">'+(hasDamage?'⚠ DAMAGE CONTROL':'Maintenance check')+'</p>'
+    +body+'</div>';
 }
-
-function maintenanceDone(){markDone('firefighter');}
-
-function genMaintenancePuzzle(){
-  // simple puzzle for maintenance - rotate through first 3 types only
-  const idx=(G[myCrew].roundNum||1)%3;
-  return PUZZLES[idx]();
-}
-
 function checkFF(i){
-  const cr=G[myCrew];
-  if(!cr.damage||!cr.damage.puzzle)return;
-  const el=document.getElementById('ffopt-'+i);
-  if(i===cr.damage.puzzle.ci){
-    if(el)el.classList.add('ok');
-    cr.damage.fixed=true;
-    addLog(crewName()+' damage contained',true);
-    if(fireTimerInterval){clearInterval(fireTimerInterval);fireTimerInterval=null;}
-    setTimeout(()=>markDone('firefighter'),400);
-  } else {
-    if(el)el.classList.add('no');
-    setTimeout(()=>el&&el.classList.remove('no'),700);
-  }
+  var cr=G[myCrew];if(!cr.damage||!cr.damage.puzzle)return;
+  var el=document.getElementById('ff-opt-'+i);
+  if(i===cr.damage.puzzle.ci){if(el)el.classList.add('ok');cr.damage.fixed=true;addLog(crewName()+' damage contained',true);if(fireTimerInterval){clearInterval(fireTimerInterval);fireTimerInterval=null;}setTimeout(function(){markDone('firefighter');},400);}
+  else{if(el){el.classList.add('no');setTimeout(function(){el.classList.remove('no');},700);}}
 }
-
+function checkFFSurf(i){
+  var q=curEngPuzzle;if(!q)return;
+  var el=document.getElementById('ff-surf-opt-'+i);
+  if(i===q.ci){if(el)el.classList.add('ok');curEngPuzzle=null;setTimeout(function(){completeSurfaceChallenge('firefighter');},400);}
+  else{if(el){el.classList.add('no');setTimeout(function(){el.classList.remove('no');},700);}}
+}
 function checkMaintenance(i){
-  const mp=G[myCrew].maintenancePuzzle;
-  if(!mp) return;
-  const el=document.getElementById('maintopt-'+i);
-  if(i===mp.ci){
-    if(el)el.classList.add('ok');
-    G[myCrew].maintenancePuzzle=null;
-    addLog(crewName()+' maintenance complete');
-    setTimeout(()=>markDone('firefighter'),400);
-  } else {
-    if(el)el.classList.add('no');
-    setTimeout(()=>el&&el.classList.remove('no'),700);
-  }
+  var mp=G[myCrew].maintenancePuzzle;if(!mp)return;
+  var el=document.getElementById('maint-opt-'+i);
+  if(i===mp.ci){if(el)el.classList.add('ok');G[myCrew].maintenancePuzzle=null;addLog(crewName()+' maintenance complete');setTimeout(function(){markDone('firefighter');},400);}
+  else{if(el){el.classList.add('no');setTimeout(function(){el.classList.remove('no');},700);}}
 }
-  if(fireTimerInterval) clearInterval(fireTimerInterval);
-  fireTimerInterval=setInterval(()=>{
+function startFireTimer(){
+  if(fireTimerInterval)clearInterval(fireTimerInterval);
+  fireTimerInterval=setInterval(function(){
     if(!G||!G[myCrew]||!G[myCrew].damage||G[myCrew].damage.fixed){clearInterval(fireTimerInterval);return;}
     G[myCrew].damage.timeLeft--;
-    const el=document.getElementById('ff-timer');
+    var el=document.getElementById('ff-timer');
     if(el){el.textContent='TIME: '+G[myCrew].damage.timeLeft+'s';el.classList.toggle('urg',G[myCrew].damage.timeLeft<20);}
     if(G[myCrew].damage.timeLeft<=0){
       G[myCrew].hp=Math.max(0,G[myCrew].hp-1);
@@ -1207,117 +1109,120 @@ function checkMaintenance(i){
       addLog(crewName()+' extra hull damage — firefighter too slow',true);
       pushState();
     }
-    if(G[myCrew].damage.timeLeft%10===0) pushState();
+    if(G[myCrew].damage.timeLeft%10===0)pushState();
   },1000);
 }
 
-// ── COMMS ─────────────────────────────────────────────────────────────────────
+// ── COMMS ───────────────────────────────────────────────────────────────────
 function renderComms(){
-  const cr=G[myCrew];
-  const active=isMyTurnRole('comms');
-  const done=isDone('comms');
+  var cr=G[myCrew];
+  var active=isMyTurnRole('comms');
+  var done=isDone('comms');
   if(cr.surfacing&&!cr.surfaceChallenges['comms']){
-    if(active&&!curEngPuzzle) genEngPuzzle();
-    const q=curEngPuzzle;
-    return `<div class="panel"><p class="pt">⚠ SURFACE CHALLENGE — Comms</p>
-      ${q?`<p style="font-size:13px;color:var(--text2);margin-bottom:10px">${q.q}</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        ${q.opts.map((o,i)=>`<div class="eopt" id="cseopt-${i}" onclick="checkSurface('comms',${i})">${o}</div>`).join('')}
-      </div>`:`<p style="color:var(--text3)">STANDBY</p>`}
-    </div>`;
+    if(active&&!curEngPuzzle)genEngPuzzle();
+    var q=curEngPuzzle;
+    return miniSubGrid()+'<div class="panel"><p class="pt">⚠ SURFACE CHALLENGE — Comms</p>'
+      +(q?'<p style="font-size:13px;color:var(--text2);margin-bottom:10px">'+q.q+'</p>'+renderPuzzleOpts(q,'comms-surf','checkCommsSurf'):'<p style="color:var(--text3)">STANDBY</p>')
+      +'</div>';
   }
-  const charge=cr.commsCharge||0;
-  const sel=cr.commsOption;
-  const full=charge>=100;
-  const opts=[
-    {id:0,name:'SECTOR PING',icon:'📡',desc:'Reveals which sector (A/B/C/D) the enemy is in. Enemy sonar notified.',charge:sel===0?charge:0},
-    {id:1,name:'ROW / COL HINT',icon:'🗺',desc:'1 accurate row + 1 false column (or vice versa). Enemy sonar notified.',charge:sel===1?charge:0},
-    {id:2,name:'GO SILENT',icon:'🔇',desc:'Next captain move won\'t broadcast heading. Enemy sonar told you went silent.',charge:sel===2?charge:0}
+  var charge=cr.commsCharge||0;
+  var sel=cr.commsOption;
+  var full=charge>=100;
+  var opts=[
+    {id:0,name:'SECTOR PING',icon:'📡',desc:'Reveals which sector enemy is in. Enemy sonar notified.'},
+    {id:1,name:'ROW / COL HINT',icon:'🗺',desc:'1 accurate + 1 false coordinate. Enemy sonar notified.'},
+    {id:2,name:'GO SILENT',icon:'🔇',desc:'Next captain move not broadcast. Enemy told you went silent.'}
   ];
-  return miniSubGrid()+`<div class="panel">
-    <p class="pt">Intel options — charges 20% per round</p>
-    <p style="font-size:11px;color:var(--text3);margin-bottom:10px;letter-spacing:0.03em">Select one option to charge. Switching option does NOT reset charge. Deploy at 100%.</p>
-    ${opts.map(o=>`
-    <div class="copt ${sel===o.id?'sel':''} ${o.charge>=100?'full':''}" onclick="${active?`selectComms(${o.id})`:''}">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <span>${o.icon}</span>
-        <span style="font-size:11px;font-weight:700;color:${sel===o.id?'var(--amber)':'var(--text2)'};letter-spacing:0.08em">${o.name}</span>
-        <span style="margin-left:auto;font-size:11px;font-weight:700;color:${o.charge>=100?'var(--green)':'var(--amber)'}">${sel===o.id?Math.round(charge)+'%':''}</span>
-        ${sel===o.id?`<span class="badge ${o.charge>=100?'bg':'ba'}">${o.charge>=100?'READY':'CHARGING'}</span>`:''}
-      </div>
-      <p style="font-size:10px;color:var(--text3);line-height:1.6">${o.desc}</p>
-      ${sel===o.id?`<div class="copt-charge" style="width:${Math.min(100,charge)}%"></div>`:''}
-    </div>`).join('')}
-    ${active&&full&&sel!==null?`<button class="pri" onclick="deployComms()" style="width:100%;margin-top:10px">[ DEPLOY OPTION ${sel+1} — ${opts[sel].name} ]</button>`:''}
-    ${active&&!done?`<button class="pass" onclick="passOrders()">[ PASS ORDERS ]</button>`:''}
-  </div>`;
+  var html=miniSubGrid()+'<div class="panel"><p class="pt">Intel options — 20% charge per round</p>'
+    +'<p style="font-size:11px;color:var(--text3);margin-bottom:10px">Select one to charge. Switching does NOT reset charge. Deploy at 100%.</p>';
+  opts.forEach(function(o){
+    var isSel=sel===o.id;
+    var isFull=isSel&&charge>=100;
+    var pct=isSel?Math.round(charge):0;
+    html+='<div class="copt '+(isSel?'sel':'')+' '+(isFull?'full':'')+'" onclick="'+(active?'selectComms('+o.id+')':'')+'">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+      +'<span>'+o.icon+'</span>'
+      +'<span style="font-size:11px;font-weight:700;color:'+(isSel?'var(--amber)':'var(--text2)')+';letter-spacing:0.08em">'+o.name+'</span>'
+      +(isSel?'<span style="margin-left:auto;font-size:11px;font-weight:700;color:'+(isFull?'var(--green)':'var(--amber)')+'">'+pct+'%</span>'
+        +'<span class="badge '+(isFull?'bg':'ba')+'">'+(isFull?'READY':'CHARGING')+'</span>':'')
+      +'</div>'
+      +'<p style="font-size:10px;color:var(--text3);line-height:1.6">'+o.desc+'</p>'
+      +(isSel?'<div class="copt-charge" style="width:'+Math.min(100,charge)+'%"></div>':'')
+      +'</div>';
+  });
+  if(active&&full&&sel!==null)html+='<button class="pri" onclick="deployComms()" style="width:100%;margin-top:10px">[ DEPLOY OPTION '+(sel+1)+' — '+opts[sel].name+' ]</button>';
+  if(active&&!done)html+='<button class="pass" onclick="passOrders()">[ PASS ORDERS ]</button>';
+  html+='</div>';
+  return html;
 }
-
-function selectComms(id){
-  // switching doesn't reset charge
-  G[myCrew].commsOption=id;
-  addLog(crewName()+' comms: charging option '+(id+1));
-  pushState();renderStation();
-}
-
+function selectComms(id){G[myCrew].commsOption=id;addLog(crewName()+' comms: charging option '+(id+1));pushState();renderStation();}
 function deployComms(){
-  const cr=G[myCrew];
-  const opt=cr.commsOption;
-  const opp=myCrew==='A'?'B':'A';
+  var cr=G[myCrew];var opt=cr.commsOption;var opp=myCrew==='A'?'B':'A';
   if(opt===0){
-    const sec=getSector(G[opp].pos);
+    var sec=getSector(G[opp].pos);
     showSectOverlay(sec,'ENEMY IN SECTOR '+sec);
     addLog(crewName()+' sector ping: enemy in sector '+sec,true);
     send({type:'sector_ping_alert',room:roomCode,crew:myCrew});
   } else if(opt===1){
-    const row=G[opp].pos.r+1,col=G[opp].pos.c+1;
-    const rowReal=Math.random()>0.5;
-    const fakeRow=Math.max(1,row+(Math.random()>0.5?3:-3));
-    const fakeCol=Math.max(1,col+(Math.random()>0.5?3:-3));
-    const hint=rowReal?`ROW ${row} or COL ${fakeCol}`:`ROW ${fakeRow} or COL ${col}`;
+    var row=G[opp].pos.r+1,col=G[opp].pos.c+1;
+    var rowReal=Math.random()>0.5;
+    var fakeRow=Math.max(1,row+(Math.random()>0.5?3:-3));
+    var fakeCol=Math.max(1,col+(Math.random()>0.5?3:-3));
+    var hint=rowReal?'ROW '+row+' or COL '+fakeCol:'ROW '+fakeRow+' or COL '+col;
     toast('INTEL: Enemy at '+hint+' (one is accurate)',4000);
     addLog(crewName()+' row/col hint: '+hint,true);
     send({type:'sector_ping_alert',room:roomCode,crew:myCrew});
   } else if(opt===2){
-    cr.goSilent=true;
-    cr.commsActive='silent';
-    toast('SILENT RUN active — captain\'s next move will not notify enemy sonar',3500);
+    cr.goSilent=true;cr.commsActive='silent';
+    toast("SILENT RUN armed — captain's next move won't notify enemy sonar",3500);
     addLog(crewName()+' SILENT RUN armed');
   }
-  cr.commsCharge=0;
-  cr.commsOption=null;
+  cr.commsCharge=0;cr.commsOption=null;
   markDone('comms');
 }
+function checkCommsSurf(i){
+  var q=curEngPuzzle;if(!q)return;
+  var el=document.getElementById('comms-surf-opt-'+i);
+  if(i===q.ci){if(el)el.classList.add('ok');curEngPuzzle=null;setTimeout(function(){completeSurfaceChallenge('comms');},400);}
+  else{if(el){el.classList.add('no');setTimeout(function(){el.classList.remove('no');},700);}}
+}
 
-// ── TURN MANAGEMENT ──────────────────────────────────────────────────────────
+// ── SURFACE ─────────────────────────────────────────────────────────────────
+function completeSurfaceChallenge(role){
+  G[myCrew].surfaceChallenges[role]=true;
+  var roles=G.players[myCrew].flatMap?G.players[myCrew].flatMap(function(p){return p.roles||[];})
+    :G.players[myCrew].reduce(function(a,p){return a.concat(p.roles||[]);}, []);
+  var allDone=roles.every(function(r){return G[myCrew].surfaceChallenges[r];});
+  if(allDone){
+    G[myCrew].trail=[{r:G[myCrew].pos.r,c:G[myCrew].pos.c}];
+    G[myCrew].surfacing=false;G[myCrew].surfaceChallenges={};
+    addLog(crewName()+' DIVED — trail cleared');
+  }
+  pushState();renderStation();
+}
+
+// ── TURN MANAGEMENT ─────────────────────────────────────────────────────────
 function initRoundDone(){if(!G[myCrew].roundDone)G[myCrew].roundDone={};}
-
 function markDone(role){
   initRoundDone();
   G[myCrew].roundDone[role]=true;
-  addLog(crewName()+' — '+(RD[role]?.name||role)+' done');
+  addLog(crewName()+' — '+(RD[role]?RD[role].name:role)+' done');
   advanceTurn();
 }
-
 function passOrders(){
   initRoundDone();
-  const cur=getCurRole();
+  var cur=getCurRole();
   G[myCrew].roundDone[cur]=true;
-  addLog(crewName()+' — '+(RD[cur]?.name||cur)+' passes');
+  addLog(crewName()+' — '+(RD[cur]?RD[cur].name:cur)+' passes');
   advanceTurn();
 }
-
 function advanceTurn(){
   initRoundDone();
-  const cur=getCurRole();
-  const curIdx=ROLE_ORDER.indexOf(cur);
-  let next=curIdx+1;
-  while(next<ROLE_ORDER.length){
-    if(crewHasRole(ROLE_ORDER[next])) break;
-    next++;
-  }
+  var cur=getCurRole();
+  var curIdx=ROLE_ORDER.indexOf(cur);
+  var next=curIdx+1;
+  while(next<ROLE_ORDER.length){if(crewHasRole(ROLE_ORDER[next]))break;next++;}
   if(next>=ROLE_ORDER.length){
-    // round complete
     G[myCrew].currentTurnRole='captain';
     G[myCrew].roundDone={};
     G[myCrew].roundNum=(G[myCrew].roundNum||1)+1;
@@ -1329,59 +1234,43 @@ function advanceTurn(){
   }
   pushState();renderStation();
 }
+function bindGrids(){}
 
-// ── GRIDS / BIND ─────────────────────────────────────────────────────────────
-function bindGrids(){
-  // sonar mark grid via onclick="cellClick" is already in HTML
-}
-
-// ── LOG ───────────────────────────────────────────────────────────────────────
-function miniLog(){
-  if(!G)return'';
-  return `<div class="panel" style="background:var(--bg2)"><p class="pt">System log</p>
-    ${G.log.slice(0,8).map(l=>`<div class="log-line ${l.startsWith('***')?'imp':''}">&gt; ${l}</div>`).join('')}
-  </div>`;
-}
-
-// ── HOST/JOIN ─────────────────────────────────────────────────────────────────
+// ── HOST/JOIN ────────────────────────────────────────────────────────────────
 function hostCreate(){
-  const nameA=document.getElementById('h-nameA').value||'Red Tide';
-  const nameB=document.getElementById('h-nameB').value||'Deep Six';
-  const size=parseInt(document.getElementById('h-grid').value);
-  const hp=parseInt(document.getElementById('h-hp').value);
-  const hostJoins=document.getElementById('h-join')?.checked;
-  const hostName=(document.getElementById('h-name')?.value||'').trim();
-  const hostRole=document.getElementById('h-role')?.value||'random';
+  var nameA=document.getElementById('h-nameA').value||'Red Tide';
+  var nameB=document.getElementById('h-nameB').value||'Deep Six';
+  var size=parseInt(document.getElementById('h-grid').value);
+  var hp=parseInt(document.getElementById('h-hp').value);
+  var hostJoins=document.getElementById('h-join')?document.getElementById('h-join').checked:false;
+  var hostName=document.getElementById('h-name')?document.getElementById('h-name').value.trim():'';
+  var hostRole=document.getElementById('h-role')?document.getElementById('h-role').value:'random';
   if(hostJoins&&!hostName){toast('Enter your name to join.');return;}
-  if(hostJoins) myName=hostName;
-  connectWS(()=>{
-    send({type:'host_create',settings:{nameA,nameB,size,hp,hostJoins,hostName,hostRole}});
-  });
+  if(hostJoins)myName=hostName;
+  connectWS(function(){send({type:'host_create',settings:{nameA:nameA,nameB:nameB,size:size,hp:hp,hostJoins:hostJoins,hostName:hostName,hostRole:hostRole}});});
 }
-
-document.addEventListener('DOMContentLoaded',()=>{
-  const cb=document.getElementById('h-join');
-  const fields=document.getElementById('h-join-fields');
-  if(cb&&fields) cb.addEventListener('change',()=>{fields.style.display=cb.checked?'block':'none';});
-});
-
-function copyCode(){navigator.clipboard.writeText(roomCode).then(()=>toast('Copied!'));}
+function copyCode(){navigator.clipboard.writeText(roomCode).then(function(){toast('Copied!');});}
 function startGame(){send({type:'start_game',room:roomCode});}
-
 function joinGame(){
-  const code=document.getElementById('jcode').value.trim().toUpperCase();
-  const name=document.getElementById('jname').value.trim();
-  const err=document.getElementById('jerr');err.style.display='none';
+  var code=document.getElementById('jcode').value.trim().toUpperCase();
+  var name=document.getElementById('jname').value.trim();
+  var err=document.getElementById('jerr');err.style.display='none';
   if(!code||code.length<3){err.textContent='Enter room code.';err.style.display='block';return;}
   if(!name){err.textContent='Enter your name.';err.style.display='block';return;}
   myName=name;roomCode=code;
-  connectWS(()=>send({type:'join',room:code,name}));
+  connectWS(function(){send({type:'join',room:code,name:name});});
 }
 
-document.addEventListener('click',()=>{getAudio();scheduleAmbient();},{once:true});
-document.addEventListener('keydown',()=>{getAudio();scheduleAmbient();},{once:true});
-setInterval(()=>{if(WS&&WS.readyState===1)send({type:'ping'});},25000);
-// preload voices
+// ── HOST JOIN TOGGLE ────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',function(){
+  var cb=document.getElementById('h-join');
+  var fields=document.getElementById('h-join-fields');
+  if(cb&&fields)cb.addEventListener('change',function(){fields.style.display=cb.checked?'block':'none';});
+});
+
+document.addEventListener('click',function(){getAudio();scheduleAmbient();},{once:true});
+document.addEventListener('keydown',function(){getAudio();scheduleAmbient();},{once:true});
+setInterval(function(){if(WS&&WS.readyState===1)send({type:'ping'});},25000);
 window.speechSynthesis&&window.speechSynthesis.getVoices();
 </script>
 </body>
