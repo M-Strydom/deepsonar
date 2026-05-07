@@ -503,7 +503,12 @@ function handleMsg(msg){
     }
   }
   if(msg.type==='damage_alert'){
-    if(msg.crew===myCrew){triggerDamageFlash();if(fireTimerInterval)clearInterval(fireTimerInterval);startFireTimer();}
+    if(msg.crew===myCrew){
+      triggerDamageFlash();
+      if(fireTimerInterval)clearInterval(fireTimerInterval);
+      startFireTimer();
+      if(onStation())renderStation();
+    }
   }
   if(msg.type==='error'){
     var e=document.getElementById('jerr');
